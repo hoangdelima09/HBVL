@@ -1,0 +1,17 @@
+{
+  "extends": "@hbvl/config/tsconfig.node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "rootDir": "..",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "declaration": false,
+    "declarationMap": false,
+    "composite": false
+  },
+  "include": ["integration", "migration", "e2e", "fixtures", "smoke", "*.mts", "../apps/api/src"]
+}

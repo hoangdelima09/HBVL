@@ -1,0 +1,39 @@
+{
+  "name": "@hbvl/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "prisma",
+    "data"
+  ],
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:status": "prisma migrate status",
+    "seed": "tsx prisma/seed.ts",
+    "studio": "prisma studio --port 55555 --browser none",
+    "test:unit": "echo \"(no unit tests in database package)\""
+  },
+  "dependencies": {
+    "@hbvl/contracts": "workspace:*",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0"
+  },
+  "devDependencies": {
+    "@hbvl/config": "workspace:*",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
+    "dotenv": "18.0.7",
+    "pg": "8.23.1",
+    "prisma": "7.10.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
+}

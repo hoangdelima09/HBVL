@@ -1,0 +1,82 @@
+# Local development services. Production reference lives in infra/compose.prod.yaml.
+# All host ports bind to 127.0.0.1 only — never expose DB/Redis/storage to the Internet.
+name: hbvl
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hbvl}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?run pnpm setup:env first}
+      HBVL_APP_USER: ${POSTGRES_APP_USER:-hbvl_app}
+      HBVL_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?}
+      HBVL_MIGRATOR_USER: ${POSTGRES_MIGRATOR_USER:-hbvl_migrator}
+      HBVL_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:?}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d ${POSTGRES_DB:-hbvl}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [hbvl]
+
+  redis:
+    image: redis:8.10.2-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?}', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-56379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    networks: [hbvl]
+
+  # S3-compatible object storage (SeaweedFS, actively maintained; MinIO community images are no longer published).
+  storage:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    command: ['server', '-dir=/data', '-s3', '-s3.port=8333', '-s3.config=/etc/seaweedfs/s3.json', '-master.volumeSizeLimitMB=256', '-ip=storage']
+    ports:
+      - '127.0.0.1:${S3_PORT:-58333}:8333'
+    volumes:
+      - s3_data:/data
+      - ./.runtime/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ['CMD-SHELL', "wget -q -O- http://127.0.0.1:8333/status >/dev/null 2>&1 || wget -q -S -O- http://127.0.0.1:8333/ 2>&1 | grep -q 'HTTP/'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [hbvl]
+
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-51025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-58025}:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [hbvl]
+
+volumes:
+  pg_data:
+  redis_data:
+  s3_data:
+
+networks:
+  hbvl:

@@ -1,0 +1,30 @@
+node_modules/
+.pnpm-store/
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+# Legacy source material must never be committed (SQL dumps, workbooks, personal data, migration reports)
+*.sql
+*.sql.gz
+!packages/database/prisma/migrations/**/*.sql
+!infra/**/*.sql
+!tests/fixtures/**/*.sql
+*.xlsx
+.legacy/
+reports/
+!docs/reports/
+playwright-report/
+test-results/
+blob-report/
+.turbo/
+*.log
+.DS_Store
+# Generated Prisma client
+packages/database/src/generated/
+.runtime/
+backups/

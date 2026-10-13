@@ -1,0 +1,19 @@
+{
+  "tin-tuc": { "name": "ニュース", "navLabel": "ニュース", "summary": "奨学金コミュニティの最新情報、注目のメンバー、卒業生の恩返しのストーリーをお届けします。" },
+  "chuyen-vuon-len": { "name": "ライズアップ・ストーリー", "description": "基金が主催する最新の活動、イベント、プログラム、お知らせ。" },
+  "guong-mat-vuon-len": { "name": "ライズアップの顔ぶれ", "description": "学業・キャリア・地域活動で優れた成果を上げたメンバーの紹介。" },
+  "tiep-noi": { "name": "恩返し", "description": "卒業生が後輩を支え、導き、実践的な経験を分かち合うストーリー。" },
+  "dong-du-ky": { "name": "東遊紀行", "navLabel": "紀行", "summary": "旅、つながりのマップ、体験したい大切な場所のためのスペース。" },
+  "ban-do-vuon-len": { "name": "ライズアップ・マップ", "description": "メンバーと卒業生が活躍する場所を示すベトナム地図。つながりや訪問の計画にお役立てください。" },
+  "nhat-ky-chuyen-di": { "name": "旅の日記", "description": "学び・仕事・探求のための旅の物語。思い出、教訓、感想を綴ります。" },
+  "gioi-thieu-dia-diem": { "name": "スポット紹介", "description": "メンバーが訪れたおすすめの場所。景色、文化的価値、訪れる理由をご紹介します。" },
+  "so-tay-kien-thuc": { "name": "知識ハンドブック", "navLabel": "ハンドブック", "summary": "学習のコツ、生活の知恵、日常で得た前向きな気づき。" },
+  "bi-kip": { "name": "コツ・ヒント", "description": "生活や学習方法、記憶術、モチベーション、批判的思考に役立つ実践的なヒント。" },
+  "the-gioi-quanh-ta": { "name": "身の回りの世界", "description": "短い随想、日常のエピソード、科学のメモ、役立つ暮らし方、心に残る気づき。" },
+  "goc-sach-hay": { "name": "ブックコーナー", "navLabel": "読書", "summary": "粘り強さ、知識、意義ある生き方を育む本の要約と感想。" },
+  "tom-tat-sach": { "name": "書籍の要約", "description": "逆境を乗り越え、学びと人生で立ち上がることをテーマにしたおすすめの本。" },
+  "viet-cam-nhan-sach": { "name": "読書感想文", "description": "心に残った本についての個人的な感想。思い出、やる気、そこから得た価値観。" },
+  "sinh-hoat": { "name": "コミュニティ活動", "navLabel": "活動", "summary": "グループ活動、みんなで楽しむゲーム、伝統的な歌のための資料。" },
+  "tro-choi-sinh-hoat-tap-the": { "name": "グループゲーム", "description": "輪になって遊ぶゲーム、民俗遊び、メンバーや子どもたちの活動を進行するコツ。" },
+  "tong-hop-bai-hat": { "name": "ソングライブラリー", "description": "基金に伝わる歌と、前向きなコミュニティ活動の歌を集めたライブラリー。" }
+}

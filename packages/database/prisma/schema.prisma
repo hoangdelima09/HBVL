@@ -1,0 +1,1000 @@
+// HBVL — PostgreSQL schema (Prisma 7).
+// CHECK constraints, partial indexes, trigram indexes and append-only guards live in
+// migration SQL (see prisma/migrations/*_constraints). Keep both in sync (docs/DATABASE.md).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Role {
+  ADMIN
+  COLLABORATOR
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_RESET // migrated account: no usable password until activated by email
+  DELETED // anonymised
+}
+
+enum Locale {
+  vi
+  en
+  ja
+}
+
+enum AuthTokenPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+  ACTIVATE_ACCOUNT // migrated / admin-invited accounts
+}
+
+enum CardType {
+  CARD
+  PROFILE
+  SONG
+  TIP
+}
+
+enum PostKind {
+  POST
+  EVENT
+  PROGRAM
+}
+
+// Submission workflow: DRAFT → PENDING_REVIEW → {CHANGES_REQUESTED, REJECTED, PUBLISHED}.
+// SCHEDULED / PRIVATE / TRASHED exist for legacy WordPress parity and admin-managed content.
+enum PostStatus {
+  DRAFT
+  PENDING_REVIEW
+  CHANGES_REQUESTED
+  REJECTED
+  PUBLISHED
+  SCHEDULED
+  PRIVATE
+  TRASHED
+}
+
+enum ContentOrigin {
+  SITE
+  WORDPRESS
+  SEED_DEMO
+}
+
+enum ReviewAction {
+  CREATE
+  SAVE_DRAFT
+  SUBMIT
+  RESUBMIT
+  STAFF_EDIT
+  REQUEST_CHANGES
+  REJECT
+  PUBLISH
+  UNPUBLISH
+  ADMIN_EDIT
+  DELETE
+  RESTORE
+}
+
+enum RevisionKind {
+  SNAPSHOT
+  WP_REVISION
+}
+
+enum MediaStatus {
+  STAGED // uploaded, not yet attached/committed
+  ACTIVE
+  ORPHAN // legacy file without a database owner
+  DELETED
+}
+
+enum MediaVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum MediaPurpose {
+  POST_FEATURED
+  POST_INLINE
+  PROVINCE_PHOTO
+  SITE
+  LEGACY_IMPORT
+}
+
+enum PostMediaRole {
+  FEATURED
+  INLINE
+}
+
+enum CommentStatus {
+  APPROVED
+  PENDING
+  SPAM
+  TRASHED
+}
+
+enum ReportReason {
+  SPAM
+  ABUSE // insulting / harassing
+  HATE // hateful or discriminatory
+  MISINFO
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW // claimed by one staff member
+  RESOLVED // action taken on the comment
+  DISMISSED // report judged unfounded
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum ContactStatus {
+  NEW
+  DONE
+}
+
+// Not-delivered-until-proven: QUEUED (outbox row) → SENT_TO_PROVIDER (SMTP accepted) → DELIVERED (provider event) | FAILED | BOUNCED.
+enum MailState {
+  NONE
+  QUEUED
+  SENT_TO_PROVIDER
+  DELIVERED
+  FAILED
+  BOUNCED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+  DEAD
+}
+
+enum AdminSystem {
+  CURRENT_34
+  LEGACY_63
+}
+
+enum ProvinceKind {
+  PROVINCE
+  CITY
+}
+
+enum MemberStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum DirectoryVerification {
+  UNVERIFIED_SAMPLE
+  VERIFIED
+  HIDDEN
+}
+
+enum PageTemplate {
+  DEFAULT
+  CONTACT
+  ANNOUNCEMENTS
+  ABOUT
+}
+
+enum AuditResult {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+enum RedirectSource {
+  LEGACY_MIGRATION
+  ADMIN
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MigrationMode {
+  DRY_RUN
+  APPLY
+}
+
+enum MigrationRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum IssueSeverity {
+  INFO
+  WARNING
+  ERROR
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+model User {
+  id                 String     @id @default(uuid(7)) @db.Uuid
+  username           String     @db.VarChar(60)
+  usernameNormalized String     @unique @db.VarChar(60) // NFKC + lowercase + trim
+  email              String     @db.VarChar(254)
+  emailNormalized    String     @unique @db.VarChar(254) // lowercase + trim (+ NFKC)
+  displayName        String     @db.VarChar(100)
+  passwordHash       String? // Argon2id PHC string; NULL for PENDING_RESET
+  role               Role       @default(MEMBER)
+  status             UserStatus @default(ACTIVE)
+  emailVerifiedAt    DateTime?  @db.Timestamptz(6)
+  locale             Locale     @default(vi)
+  mfaEnabled         Boolean    @default(false)
+  mfaSecretEnc       String? // AES-256-GCM(secret) base64
+  lastLoginAt        DateTime?  @db.Timestamptz(6)
+  failedLoginCount   Int        @default(0)
+  lockedUntil        DateTime?  @db.Timestamptz(6)
+  mustChangePassword Boolean    @default(false) // set when an administrator resets the password to the default: only "change password" works until done
+  // Restriction (softer than SUSPENDED): may sign in and read, but cannot comment/like/submit/send mail. NULL restrictedAt = not restricted.
+  restrictedAt       DateTime?  @db.Timestamptz(6)
+  restrictedUntil    DateTime?  @db.Timestamptz(6) // NULL while restrictedAt is set = until lifted by staff
+  restrictionReason  String?    @db.VarChar(300)
+  createdAt          DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt          DateTime?  @db.Timestamptz(6)
+
+  profile        UserProfile?
+  reportsMade    CommentReport[]    @relation("ReportReporter")
+  reportsClaimed CommentReport[]    @relation("ReportAssignee")
+  reportsHandled CommentReport[]    @relation("ReportHandler")
+  sessions       Session[]
+  authTokens     AuthToken[]
+  recoveryCodes  MfaRecoveryCode[]
+  posts          Post[]             @relation("PostAuthor")
+  comments       Comment[]
+  likes          PostLike[]
+  feedbacks      Feedback[]
+  contacts       ContactMessage[]
+  notifications  Notification[]
+  reviewEvents   ReviewEvent[]
+  mediaAssets    MediaAsset[]
+  member         ScholarshipMember?
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model UserProfile {
+  userId            String   @id @db.Uuid
+  bio               String?  @db.VarChar(500)
+  notificationPrefs Json     @default("{}")
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Session {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  userId        String    @db.Uuid
+  tokenHash     String    @unique @db.Char(64) // sha256(hex) of opaque token; the token itself is never stored
+  csrfSalt      String    @db.Char(32)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  lastSeenAt    DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt     DateTime  @db.Timestamptz(6) // absolute lifetime
+  idleExpiresAt DateTime  @db.Timestamptz(6) // sliding idle timeout
+  rememberMe    Boolean   @default(false)
+  mfaVerifiedAt DateTime? @db.Timestamptz(6)
+  ipHash        String?   @db.Char(16)
+  userAgent     String?   @db.VarChar(255)
+  revokedAt     DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model AuthToken {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @db.Uuid
+  purpose   AuthTokenPurpose
+  tokenHash String           @unique @db.Char(64)
+  /// HMAC of the 6-digit code e-mailed next to the link (null for tokens issued before codes existed).
+  codeHash  String?          @db.Char(64)
+  /// Wrong-code guesses spent against this token; the code dies at TokenService.MAX_CODE_ATTEMPTS.
+  attempts  Int              @default(0)
+  expiresAt DateTime         @db.Timestamptz(6)
+  usedAt    DateTime?        @db.Timestamptz(6)
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("auth_tokens")
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  codeHash  String    @db.Char(64)
+  usedAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mfa_recovery_codes")
+}
+
+// ───────────────────────────── Taxonomy ─────────────────────────────
+
+model Category {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  slug      String   @unique @db.VarChar(100)
+  parentId  String?  @db.Uuid
+  sortOrder Int      @default(0)
+  cardType  CardType @default(CARD)
+  iconKey   String?  @db.VarChar(40)
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  parent       Category?             @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Category[]            @relation("CategoryTree")
+  translations CategoryTranslation[]
+  posts        PostCategory[]
+
+  @@index([parentId, sortOrder])
+  @@map("categories")
+}
+
+model CategoryTranslation {
+  categoryId  String  @db.Uuid
+  locale      Locale
+  name        String  @db.VarChar(120)
+  navLabel    String? @db.VarChar(60) // short menu label (legacy `nav_en`)
+  summary     String? @db.VarChar(500) // group summary
+  description String? @db.VarChar(1000)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([categoryId, locale])
+  @@map("category_translations")
+}
+
+model Tag {
+  id    String    @id @default(uuid(7)) @db.Uuid
+  slug  String    @unique @db.VarChar(100)
+  name  String    @db.VarChar(100)
+  posts PostTag[]
+
+  @@map("tags")
+}
+
+// ───────────────────────────── Content ─────────────────────────────
+
+model Post {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  kind            PostKind      @default(POST)
+  slug            String        @db.VarChar(200)
+  authorId        String?       @db.Uuid // NULL when the legacy author no longer exists
+  status          PostStatus    @default(DRAFT)
+  title           String        @db.VarChar(300) // submissions are limited to 200 in the service layer
+  excerpt         String?       @db.VarChar(1000)
+  contentHtml     String        @default("")
+  contentText     String        @default("") // tag-stripped, used for excerpts/preview
+  searchText      String        @default("") // folded (no diacritics, đ→d, lowercase) for trigram search
+  featuredAssetId String?       @db.Uuid
+  publishedAt     DateTime?     @db.Timestamptz(6)
+  scheduledAt     DateTime?     @db.Timestamptz(6)
+  submittedAt     DateTime?     @db.Timestamptz(6)
+  version         Int           @default(1) // optimistic concurrency (ETag)
+  commentsOpen    Boolean       @default(true)
+  likeCount       Int           @default(0)
+  legacyLikeCount Int           @default(0) // aggregate from WP `_post_likes`; no per-user list exists
+  origin          ContentOrigin @default(SITE)
+  needsReview     Boolean       @default(false)
+  originalLocale  Locale        @default(vi)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime?     @db.Timestamptz(6)
+
+  author        User?             @relation("PostAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  featured      MediaAsset?       @relation("PostFeatured", fields: [featuredAssetId], references: [id], onDelete: SetNull)
+  translations  PostTranslation[]
+  categories    PostCategory[]
+  tags          PostTag[]
+  media         PostMedia[]
+  revisions     PostRevision[]
+  reviewEvents  ReviewEvent[]
+  comments      Comment[]
+  likes         PostLike[]
+  eventDetail   EventDetail?
+  programDetail ProgramDetail?
+
+  @@unique([kind, slug])
+  @@index([status, publishedAt(sort: Desc), id])
+  @@index([authorId, status, updatedAt(sort: Desc)])
+  @@index([kind, status, publishedAt(sort: Desc)])
+  @@map("posts")
+}
+
+model PostTranslation {
+  postId      String   @db.Uuid
+  locale      Locale
+  title       String   @db.VarChar(300)
+  excerpt     String?  @db.VarChar(1000)
+  contentHtml String   @default("")
+  contentText String   @default("")
+  searchText  String   @default("")
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, locale])
+  @@map("post_translations")
+}
+
+model PostCategory {
+  postId     String  @db.Uuid
+  categoryId String  @db.Uuid
+  isPrimary  Boolean @default(false)
+
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([postId, categoryId])
+  @@index([categoryId, postId])
+  @@map("post_categories")
+}
+
+model PostTag {
+  postId String @db.Uuid
+  tagId  String @db.Uuid
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("post_tags")
+}
+
+model EventDetail {
+  postId       String    @id @db.Uuid
+  startsAt     DateTime? @db.Timestamptz(6)
+  endsAt       DateTime? @db.Timestamptz(6)
+  locationText String?   @db.VarChar(300)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("event_details")
+}
+
+model ProgramDetail {
+  postId    String    @id @db.Uuid
+  openFrom  DateTime? @db.Timestamptz(6)
+  openUntil DateTime? @db.Timestamptz(6)
+  applyUrl  String?   @db.VarChar(500)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("program_details")
+}
+
+model PostRevision {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  postId      String       @db.Uuid
+  version     Int
+  kind        RevisionKind @default(SNAPSHOT)
+  actorId     String?      @db.Uuid
+  title       String       @db.VarChar(300)
+  contentHtml String
+  categoryIds String[]     @db.Uuid
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt(sort: Desc)])
+  @@map("post_revisions")
+}
+
+model ReviewEvent {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  postId      String       @db.Uuid
+  actorId     String?      @db.Uuid
+  action      ReviewAction
+  fromStatus  PostStatus?
+  toStatus    PostStatus
+  reason      String?      @db.VarChar(2000)
+  postVersion Int
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([postId, createdAt(sort: Desc)])
+  @@map("review_events")
+}
+
+model Page {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  parentId    String?       @db.Uuid
+  slug        String        @db.VarChar(200)
+  status      PostStatus    @default(DRAFT) // DRAFT | PUBLISHED | PRIVATE | TRASHED | SCHEDULED
+  template    PageTemplate  @default(DEFAULT)
+  sortOrder   Int           @default(0)
+  title       String        @db.VarChar(300)
+  contentHtml String        @default("")
+  contentText String        @default("")
+  searchText  String        @default("")
+  publishedAt DateTime?     @db.Timestamptz(6)
+  version     Int           @default(1)
+  origin      ContentOrigin @default(SITE)
+  needsReview Boolean       @default(false)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?     @db.Timestamptz(6)
+
+  parent       Page?             @relation("PageTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Page[]            @relation("PageTree")
+  translations PageTranslation[]
+
+  @@unique([parentId, slug])
+  @@index([status, publishedAt(sort: Desc)])
+  @@map("pages")
+}
+
+model PageTranslation {
+  pageId      String   @db.Uuid
+  locale      Locale
+  title       String   @db.VarChar(300)
+  contentHtml String   @default("")
+  contentText String   @default("")
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@id([pageId, locale])
+  @@map("page_translations")
+}
+
+// ───────────────────────────── Media ─────────────────────────────
+
+model MediaAsset {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  ownerId        String?         @db.Uuid
+  status         MediaStatus     @default(STAGED)
+  visibility     MediaVisibility @default(PRIVATE)
+  purpose        MediaPurpose
+  bucket         String          @db.VarChar(63)
+  objectKey      String          @db.VarChar(400) // server generated; never derived from client filename
+  mime           String          @db.VarChar(100)
+  byteSize       Int
+  width          Int?
+  height         Int?
+  checksumSha256 String          @db.Char(64)
+  originalName   String?         @db.VarChar(200) // sanitised metadata only
+  variants       Json            @default("{}") // { thumb: {key,w,h}, card: {...}, large: {...} }
+  isPlaceholder  Boolean         @default(false)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  attachedAt     DateTime?       @db.Timestamptz(6)
+  deletedAt      DateTime?       @db.Timestamptz(6)
+
+  owner       User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  featuredFor Post[]      @relation("PostFeatured")
+  postMedia   PostMedia[]
+  provinces   Province[]
+
+  @@unique([bucket, objectKey])
+  @@index([checksumSha256])
+  @@index([status, createdAt])
+  @@map("media_assets")
+}
+
+model PostMedia {
+  postId    String        @db.Uuid
+  assetId   String        @db.Uuid
+  role      PostMediaRole
+  sortOrder Int           @default(0)
+
+  post  Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  asset MediaAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@id([postId, assetId, role])
+  @@index([assetId])
+  @@map("post_media")
+}
+
+// ───────────────────────────── Engagement ─────────────────────────────
+
+model Comment {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  postId        String        @db.Uuid
+  authorId      String?       @db.Uuid
+  authorName    String        @db.VarChar(100) // snapshot (legacy users may be gone)
+  parentId      String?       @db.Uuid
+  depth         Int           @default(0)
+  body          String        @db.VarChar(5000)
+  status        CommentStatus @default(PENDING)
+  moderatedById String?       @db.Uuid
+  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(6)
+
+  post     Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author   User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  parent   Comment?        @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  children Comment[]       @relation("CommentThread")
+  reports  CommentReport[]
+
+  @@index([postId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([authorId])
+  @@map("comments")
+}
+
+/// A member's report of a comment. Staff (collaborator or admin) are notified; whoever acts first handles it (atomic claim / resolve).
+model CommentReport {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  commentId      String       @db.Uuid
+  reporterId     String?      @db.Uuid
+  reason         ReportReason
+  note           String?      @db.VarChar(500)
+  status         ReportStatus @default(OPEN)
+  assignedToId   String?      @db.Uuid
+  claimedAt      DateTime?    @db.Timestamptz(6)
+  handledById    String?      @db.Uuid
+  handledAt      DateTime?    @db.Timestamptz(6)
+  resolution     String?      @db.VarChar(40) // DISMISS | REMOVE_COMMENT | REMOVE_AND_RESTRICT | REMOVE_AND_BLOCK
+  resolutionNote String?      @db.VarChar(500)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+
+  comment    Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter   User?   @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  assignedTo User?   @relation("ReportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  handledBy  User?   @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@unique([commentId, reporterId])
+  @@index([status, createdAt])
+  @@index([commentId, status])
+  @@map("comment_reports")
+}
+
+model PostLike {
+  userId    String   @db.Uuid
+  postId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("post_likes")
+}
+
+// ───────────────────────────── Inboxes ─────────────────────────────
+
+model Feedback {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  authorId  String?        @db.Uuid
+  subject   String         @db.VarChar(160)
+  message   String         @db.VarChar(5000) // original text, never edited by staff
+  status    FeedbackStatus @default(NEW)
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @db.Timestamptz(6)
+  origin    ContentOrigin  @default(SITE)
+
+  author  User?                   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  history FeedbackStatusHistory[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@map("feedbacks")
+}
+
+model FeedbackStatusHistory {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  feedbackId String          @db.Uuid
+  actorId    String?         @db.Uuid
+  fromStatus FeedbackStatus?
+  toStatus   FeedbackStatus
+  note       String?         @db.VarChar(2000) // internal note, separate from the sender's text
+  createdAt  DateTime        @default(now()) @db.Timestamptz(6)
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@index([feedbackId, createdAt])
+  @@map("feedback_status_history")
+}
+
+model ContactMessage {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  receiptCode String        @unique @db.VarChar(24) // e.g. LH-2026-000123
+  userId      String?       @db.Uuid
+  name        String        @db.VarChar(120)
+  email       String        @db.VarChar(254)
+  subject     String        @db.VarChar(200)
+  message     String        @db.VarChar(5000)
+  status      ContactStatus @default(NEW)
+  mailState   MailState     @default(NONE)
+  mailError   String?       @db.VarChar(500)
+  origin      ContentOrigin @default(SITE)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+
+  user    User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  history ContactStatusHistory[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("contact_messages")
+}
+
+model ContactStatusHistory {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  contactId  String         @db.Uuid
+  actorId    String?        @db.Uuid
+  fromStatus ContactStatus?
+  toStatus   ContactStatus
+  createdAt  DateTime       @default(now()) @db.Timestamptz(6)
+
+  contact ContactMessage @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, createdAt])
+  @@map("contact_status_history")
+}
+
+model Notification {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  type      String    @db.VarChar(60)
+  title     String    @db.VarChar(200)
+  body      String?   @db.VarChar(1000)
+  data      Json      @default("{}")
+  readAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// ───────────────────────────── Async / reliability ─────────────────────────────
+
+model OutboxEvent {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  type          String       @db.VarChar(60) // EMAIL_SEND, CACHE_INVALIDATE, MEDIA_PROCESS …
+  aggregateType String       @db.VarChar(60)
+  aggregateId   String       @db.VarChar(64)
+  payload       Json
+  dedupeKey     String?      @unique @db.VarChar(200)
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  availableAt   DateTime     @default(now()) @db.Timestamptz(6)
+  lockedAt      DateTime?    @db.Timestamptz(6)
+  lastError     String?      @db.VarChar(500)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+  processedAt   DateTime?    @db.Timestamptz(6)
+
+  deliveryAttempts EmailDeliveryAttempt[]
+
+  @@index([status, availableAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_events")
+}
+
+model EmailDeliveryAttempt {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  outboxEventId    String    @db.Uuid
+  attempt          Int
+  state            MailState
+  providerResponse String?   @db.VarChar(500)
+  messageId        String?   @db.VarChar(200)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+
+  outboxEvent OutboxEvent @relation(fields: [outboxEventId], references: [id], onDelete: Cascade)
+
+  @@index([outboxEventId, attempt])
+  @@map("email_delivery_attempts")
+}
+
+model IdempotencyRecord {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  actorId        String            @db.Uuid
+  operation      String            @db.VarChar(80)
+  key            String            @db.VarChar(100)
+  requestHash    String            @db.Char(64)
+  status         IdempotencyStatus @default(IN_PROGRESS)
+  responseStatus Int?
+  responseBody   Json?
+  resourceId     String?           @db.VarChar(64)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  expiresAt      DateTime          @db.Timestamptz(6)
+
+  @@unique([actorId, operation, key])
+  @@index([expiresAt])
+  @@map("idempotency_records")
+}
+
+model AuditLog {
+  id           BigInt      @id @default(autoincrement())
+  at           DateTime    @default(now()) @db.Timestamptz(6)
+  actorId      String?     @db.Uuid
+  actorRole    Role?
+  action       String      @db.VarChar(80)
+  resourceType String      @db.VarChar(60)
+  resourceId   String?     @db.VarChar(64)
+  result       AuditResult @default(SUCCESS)
+  requestId    String?     @db.VarChar(64)
+  ipHash       String?     @db.Char(16)
+  metadata     Json        @default("{}") // filtered: never passwords/tokens/PII bodies
+
+  @@index([at(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@index([actorId, at(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model SiteSetting {
+  key         String   @id @db.VarChar(80)
+  value       Json
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("site_settings")
+}
+
+model Redirect {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  fromPath   String         @db.VarChar(500) // normalised: leading /, no trailing / (except root); uniqueness is (fromPath, COALESCE(fromQuery, '')) via raw SQL migration 0300
+  fromQuery  String?        @db.VarChar(200) // e.g. "p=6" for ?p=ID legacy permalinks
+  toPath     String         @db.VarChar(500) // internal path only (validated)
+  statusCode Int            @default(301)
+  source     RedirectSource @default(ADMIN)
+  createdAt  DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@index([fromPath, fromQuery])
+  @@map("redirects")
+}
+
+// ───────────────────────────── Map / scholarship members ─────────────────────────────
+
+model Province {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  system       AdminSystem
+  code         String       @db.VarChar(20) // legacy theme code (p11…); NOT an official administrative code
+  officialCode String?      @db.VarChar(10) // Quyết định 19/2025/QĐ-TTg etc. when verified
+  nameVi       String       @db.VarChar(100)
+  nameEn       String       @db.VarChar(100)
+  slug         String       @db.VarChar(100)
+  kind         ProvinceKind @default(PROVINCE)
+  photoAssetId String?      @db.Uuid
+  sortOrder    Int          @default(0)
+
+  photo            MediaAsset?         @relation(fields: [photoAssetId], references: [id], onDelete: SetNull)
+  mappingAsLegacy  ProvinceMapping?    @relation("LegacyProvince")
+  mappingAsCurrent ProvinceMapping[]   @relation("CurrentProvince")
+  members          ScholarshipMember[]
+  contacts         DirectoryContact[]
+
+  @@unique([system, code])
+  @@unique([system, slug])
+  @@map("provinces")
+}
+
+// Each LEGACY_63 province belongs to exactly one CURRENT_34 unit.
+model ProvinceMapping {
+  legacyProvinceId  String @id @db.Uuid
+  currentProvinceId String @db.Uuid
+
+  legacy  Province @relation("LegacyProvince", fields: [legacyProvinceId], references: [id], onDelete: Cascade)
+  current Province @relation("CurrentProvince", fields: [currentProvinceId], references: [id], onDelete: Restrict)
+
+  @@index([currentProvinceId])
+  @@map("province_mappings")
+}
+
+model ScholarshipMember {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  fullName         String       @db.VarChar(120)
+  normalizedName   String       @db.VarChar(120) // folded, for search
+  legacyProvinceId String       @db.Uuid // origin province in the 63-unit system
+  sourceIdentity   String       @unique @db.Char(64) // sha256(source|normalizedName|legacyProvinceCode[|disambiguator])
+  userId           String?      @unique @db.Uuid // optional explicit link; never matched by name
+  status           MemberStatus @default(ACTIVE)
+  isPublic         Boolean      @default(true)
+  importRunId      String?      @db.Uuid
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(6)
+
+  legacyProvince Province @relation(fields: [legacyProvinceId], references: [id], onDelete: Restrict)
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([legacyProvinceId, status])
+  @@index([normalizedName])
+  @@map("scholarship_members")
+}
+
+model DirectoryContact {
+  id           String                @id @default(uuid(7)) @db.Uuid
+  provinceId   String                @db.Uuid
+  name         String                @db.VarChar(120)
+  role         String                @db.VarChar(80)
+  contactPath  String                @default("/lien-he") @db.VarChar(200) // internal route only
+  verification DirectoryVerification @default(UNVERIFIED_SAMPLE)
+  source       String                @db.VarChar(120)
+  sortOrder    Int                   @default(0)
+
+  province Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+
+  @@index([provinceId, verification, sortOrder])
+  @@map("directory_contacts")
+}
+
+// ───────────────────────────── Legacy migration ─────────────────────────────
+
+model LegacyIdMap {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  source           String   @default("wp") @db.VarChar(20)
+  legacyType       String   @db.VarChar(30) // user | post | page | term | comment | attachment | file
+  legacyId         String   @db.VarChar(100)
+  entityType       String   @db.VarChar(40)
+  entityId         String   @db.Uuid
+  sourceChecksum   String   @db.Char(64) // hash of the legacy record as read
+  importedChecksum String   @db.Char(64) // hash of the mapped content as written — detects later edits in the new system
+  migratedAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([source, legacyType, legacyId])
+  @@index([entityType, entityId])
+  @@map("legacy_id_map")
+}
+
+model MigrationRun {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  mode        MigrationMode
+  status      MigrationRunStatus @default(RUNNING)
+  fingerprint String             @db.Char(64) // sha256 of the source dump
+  startedAt   DateTime           @default(now()) @db.Timestamptz(6)
+  finishedAt  DateTime?          @db.Timestamptz(6)
+  stats       Json               @default("{}")
+  checkpoint  Json               @default("{}")
+
+  issues MigrationIssue[]
+
+  @@map("migration_runs")
+}
+
+model MigrationIssue {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  runId      String        @db.Uuid
+  severity   IssueSeverity
+  code       String        @db.VarChar(60)
+  legacyType String?       @db.VarChar(30)
+  legacyId   String?       @db.VarChar(100)
+  message    String        @db.VarChar(500)
+  detail     Json          @default("{}") // sanitised: no passwords / email bodies
+  createdAt  DateTime      @default(now()) @db.Timestamptz(6)
+
+  run MigrationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, severity, code])
+  @@map("migration_issues")
+}

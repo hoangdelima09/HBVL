@@ -1,0 +1,40 @@
+{
+  "name": "@hbvl/tests",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test:unit": "echo \"(unit tests live in each package)\"",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:migration": "vitest run --config vitest.migration.config.mts",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "test:a11y": "playwright test --config e2e/playwright.config.ts --project=a11y",
+    "test:smoke": "node smoke/smoke.mjs",
+    "test:load": "node load/run-k6.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@hbvl/config": "workspace:*",
+    "@hbvl/contracts": "workspace:*",
+    "@hbvl/database": "workspace:*",
+    "@nestjs/common": "12.1.2",
+    "@nestjs/core": "12.1.2",
+    "@playwright/test": "1.64.0",
+    "@swc/core": "1.16.13",
+    "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
+    "@types/supertest": "7.2.1",
+    "argon2": "0.45.1",
+    "dotenv": "18.0.7",
+    "ioredis": "6.0.0",
+    "mysql2": "3.24.5",
+    "pg": "8.23.1",
+    "reflect-metadata": "0.2.2",
+    "sharp": "0.35.5",
+    "supertest": "7.3.1",
+    "typescript": "6.0.3",
+    "unplugin-swc": "2.0.0",
+    "vitest": "5.0.3"
+  }
+}

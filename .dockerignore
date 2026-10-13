@@ -1,0 +1,16 @@
+**/node_modules
+**/.next
+**/dist
+**/coverage
+.git
+.env
+.env.*
+!.env.example
+.runtime
+reports
+test-results
+playwright-report
+*.sql
+!packages/database/prisma/migrations/**/*.sql
+*.xlsx
+READING_NOTES.md

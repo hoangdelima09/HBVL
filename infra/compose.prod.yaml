@@ -1,0 +1,150 @@
+# Production reference (single host). NOTHING here is deployed by this repository — it needs real hosts, secrets and DNS.
+#   docker compose -f infra/compose.prod.yaml --env-file .env.production up -d --build
+# Required in .env.production: see docs/DEPLOYMENT.md (every secret is generated per environment; none has a default).
+# Managed PostgreSQL / Redis / S3 are preferred in real production: delete the matching service and point the URLs at them.
+name: hbvl-prod
+
+x-app-env: &app-env
+  NODE_ENV: production
+  APP_ENV: production
+  PUBLIC_ORIGIN: https://${SITE_DOMAIN:?}
+  DATABASE_URL: postgresql://${POSTGRES_APP_USER:-hbvl_app}:${POSTGRES_APP_PASSWORD:?}@postgres:5432/${POSTGRES_DB:-hbvl}
+  MIGRATION_DATABASE_URL: postgresql://${POSTGRES_MIGRATOR_USER:-hbvl_migrator}:${POSTGRES_MIGRATOR_PASSWORD:?}@postgres:5432/${POSTGRES_DB:-hbvl}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+  S3_ENDPOINT: ${S3_ENDPOINT:?}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET_PRIVATE: ${S3_BUCKET_PRIVATE:?}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+  SMTP_HOST: ${SMTP_HOST:?}
+  SMTP_PORT: ${SMTP_PORT:?}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  MAIL_FROM: ${MAIL_FROM:?}
+  CONTACT_INBOX_EMAIL: ${CONTACT_INBOX_EMAIL:?}
+  CSRF_SECRET: ${CSRF_SECRET:?}
+  TOKEN_HASH_PEPPER: ${TOKEN_HASH_PEPPER:?}
+  MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?}
+  COOKIE_SECURE: 'true'
+  TRUST_PROXY: '2'
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hbvl}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?}
+      HBVL_APP_USER: ${POSTGRES_APP_USER:-hbvl_app}
+      HBVL_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?}
+      HBVL_MIGRATOR_USER: ${POSTGRES_MIGRATOR_USER:-hbvl_migrator}
+      HBVL_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:?}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ../infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d ${POSTGRES_DB:-hbvl}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+
+  redis:
+    image: redis:8.10.2-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?}', '--maxmemory-policy', 'noeviction']
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    networks: [internal]
+
+  # One-shot: applies migrations, then exits. api/worker start only after it succeeded.
+  migrate:
+    build: { context: .., target: tools }
+    image: hbvl-tools:${HBVL_TAG:-local}
+    environment: *app-env
+    command: ['pnpm', '--filter', '@hbvl/database', 'migrate:deploy']
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+    networks: [internal]
+
+  api:
+    build: { context: .., target: api }
+    image: hbvl-api:${HBVL_TAG:-local}
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      API_PORT: '3101'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [internal]
+
+  worker:
+    build: { context: .., target: worker }
+    image: hbvl-worker:${HBVL_TAG:-local}
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [internal]
+
+  web:
+    build: { context: .., target: web }
+    image: hbvl-web:${HBVL_TAG:-local}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PUBLIC_ORIGIN: https://${SITE_DOMAIN:?}
+      API_INTERNAL_URL: http://api:3101
+      TRUST_PROXY: '1'
+    depends_on:
+      api: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp, /app/apps/web/.next/cache]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [internal]
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+    networks: [internal, public]
+
+networks:
+  internal: {}
+  public: {}
+
+volumes:
+  pg_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

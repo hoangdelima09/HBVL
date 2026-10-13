@@ -1,0 +1,9 @@
+import { Module } from '@nestjs/common';
+import { PostsModule } from '../posts/posts.module';
+import { SiteModule } from '../site/site.module';
+import { ChatController } from './chat.controller';
+import { ChatService } from './chat.service';
+import { GeminiClient } from './gemini.client';
+
+@Module({ imports: [PostsModule, SiteModule], controllers: [ChatController], providers: [ChatService, GeminiClient] })
+export class ChatModule {}

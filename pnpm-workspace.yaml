@@ -1,0 +1,22 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'tests'
+
+# Build scripts allowed to run during install (supply-chain allowlist).
+allowBuilds:
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  '@swc/core': true
+  argon2: true
+  esbuild: true
+  msgpackr-extract: false
+  prisma: true
+  sharp: true
+  unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - dotenv@18.0.7
+  - '@types/node@24.19.2'
+  - bullmq@6.3.12
+  - express@5.3.0

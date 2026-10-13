@@ -1,0 +1,13 @@
+pnpm-lock.yaml
+dist
+.next
+coverage
+packages/database/src/generated
+*.md
+*.sql
+reports
+test-results
+playwright-report
+.runtime
+tests/fixtures
+next-env.d.ts

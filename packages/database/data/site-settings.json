@@ -1,0 +1,84 @@
+{
+  "_source": "Static copy extracted from HBVL/RiseUp theme v2.3.9 (header.php, footer.php, front-page.php, page-contact.php). Editable by ADMIN in /admin/settings.",
+  "brand": {
+    "siteNameVi": "Vươn Lên",
+    "siteNameEn": "Rise Up",
+    "fullNameVi": "Học Bổng Vươn Lên",
+    "fullNameEn": "Rise Up Scholarship",
+    "orgVi": "Quỹ Khuyến Học Đông Du",
+    "orgEn": "Dong Du Study Encouragement Fund",
+    "sloganVi": "Trao cơ hội — Nối tương lai",
+    "sloganEn": "Empowering dreams, bridging futures",
+    "locationVi": "Thành phố Hồ Chí Minh, Việt Nam",
+    "locationEn": "Ho Chi Minh City, Vietnam"
+  },
+  "contact": {
+    "addressVi": "43D/46 Hồ Văn Huê, P. Đức Nhuận, TP. HCM",
+    "addressEn": "43D/46 Ho Van Hue, Duc Nhuan Ward, HCMC",
+    "phone": "084.3214.142",
+    "phoneNoteVi": "(Thanh Vẹn)",
+    "phoneNoteEn": "(Thanh Ven)",
+    "email": "quykhuyenhocdongdu@gmail.com",
+    "hoursVi": ["Thứ 2 — Thứ 6: 8:00 — 17:00", "Thứ 7: 8:00 — 11:30"],
+    "hoursEn": ["Mon — Fri: 8:00 — 17:00", "Sat: 8:00 — 11:30"],
+    "mapUrl": "https://www.openstreetmap.org/?mlat=10.8&mlon=106.68#map=15/10.8/106.68",
+    "mapNote": "Toạ độ gần đúng lấy từ iframe Google Maps của theme cũ (10.8, 106.68); cần xác nhận địa chỉ chính xác."
+  },
+  "home": {
+    "hero": {
+      "badgeVi": "Quỹ Khuyến Học Đông Du • Tiếp Sức Tri Thức",
+      "badgeEn": "Dong Du Study Encouragement Fund • Rise Up",
+      "titleLeadVi": "Học Bổng",
+      "titleHighlightVi": "Vươn Lên",
+      "titleLeadEn": "Rise Up",
+      "titleHighlightEn": "Scholarship",
+      "descVi": "Một không gian kết nối câu chuyện học bổng, lan tỏa tinh thần hiếu học và nâng bước ước mơ trên khắp 63 tỉnh thành Việt Nam.",
+      "descEn": "A home for scholarship stories, member connection, and the spirit of rising through education across Vietnam.",
+      "stats": [
+        { "key": "units", "value": "63 / 34", "labelVi": "Tỉnh/thành kết nối", "labelEn": "Provinces & Cities", "computed": true },
+        { "key": "pillars", "value": "5", "labelVi": "Trụ cột nội dung", "labelEn": "Content Pillars", "computed": true },
+        { "key": "years", "value": "20+", "labelVi": "Năm khuyến học", "labelEn": "Years of Giving", "computed": false, "needsConfirmation": true }
+      ]
+    },
+    "mission": {
+      "labelVi": "Sứ mệnh & Giá trị",
+      "labelEn": "Mission & Values",
+      "titleVi": "Nuôi Dưỡng Khát Vọng, Lan Tỏa Tinh Thần Tự Lực",
+      "titleEn": "Nurturing Ambition, Spreading Resilience",
+      "descVi": "Học bổng Vươn Lên không chỉ là sự hỗ trợ tài chính, mà là bệ phóng tinh thần giúp sinh viên vững bước trên con đường lập thân, lập nghiệp.",
+      "descEn": "Rise Up is more than financial assistance; it is a community launchpad empowering students to rise.",
+      "cards": [
+        {
+          "icon": "layers",
+          "titleVi": "Tiếp Sức Tri Thức",
+          "titleEn": "Educational Support",
+          "descVi": "Đồng hành cùng các bạn sinh viên vượt khó, tạo điều kiện tiếp cận tri thức và phát triển kỹ năng toàn diện.",
+          "descEn": "Accompanying underprivileged students with resources, academic tools, and career skills."
+        },
+        {
+          "icon": "users",
+          "titleVi": "Mạng Lưới Gắn Kết",
+          "titleEn": "Connected Community",
+          "descVi": "Kết nối các thế hệ thành viên HBVL trên khắp mọi miền tổ quốc thông qua bản đồ số và các hoạt động giao lưu.",
+          "descEn": "Connecting HBVL alumni and members across 63 provinces through digital mapping and interactive events."
+        },
+        {
+          "icon": "heart",
+          "titleVi": "Lan Tỏa & Tiếp Nối",
+          "titleEn": "Pay It Forward",
+          "descVi": "Tinh thần Đông Du: người đi trước dìu dắt người đi sau, đóng góp giá trị thiết thực và trách nhiệm cho cộng đồng.",
+          "descEn": "Embodying the Dong Du ethos: alumni guiding juniors and paying forward values to wider society."
+        }
+      ]
+    },
+    "mapFeature": {
+      "labelVi": "Đồng Du Ký",
+      "labelEn": "Dong Du Journeys",
+      "titleVi": "Cộng đồng Vươn Lên trên khắp Việt Nam",
+      "titleEn": "The Rise Up community across Vietnam",
+      "descVi": "Khám phá quê quán của thành viên HBVL theo 34 tỉnh/thành hiện hành hoặc 63 tỉnh/thành trước sắp xếp năm 2025.",
+      "descEn": "Explore HBVL member hometowns using either the 34 current units or the 63 units before the 2025 reorganisation."
+    }
+  },
+  "social": { "facebook": null, "youtube": null, "tiktok": null, "_note": "Không có URL nào trong snapshot; để trống đến khi admin nhập." }
+}

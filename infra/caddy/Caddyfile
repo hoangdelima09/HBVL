@@ -1,0 +1,15 @@
+# TLS terminates here. Caddy obtains/renews certificates automatically once SITE_DOMAIN points at this host (DNS is NOT managed by this repo).
+# Only the web container is exposed: it serves pages and proxies /api/v1/* to the API over the private network.
+{$SITE_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy web:3100 {
+		header_up X-Forwarded-For {remote_host}
+	}
+}

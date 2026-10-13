@@ -1,0 +1,25 @@
+{
+  "name": "@hbvl/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@hbvl/config": "workspace:*",
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}

@@ -1,0 +1,151 @@
+{
+  "source": "HBVL/RiseUp theme v2.3.9 charity_content_groups()",
+  "groups": [
+    {
+      "slug": "tin-tuc",
+      "nameVi": "TIN TỨC",
+      "nameEn": "NEWS",
+      "navEn": "NEWS",
+      "summaryVi": "Cập nhật hoạt động, gương mặt tiêu biểu và hành trình tiếp nối của cộng đồng học bổng.",
+      "summaryEn": "Updates, featured members, and alumni giving-back stories from the scholarship community.",
+      "items": [
+        {
+          "slug": "chuyen-vuon-len",
+          "nameVi": "Chuyện Vươn Lên",
+          "nameEn": "Rise Up Stories",
+          "descriptionVi": "Cập nhật hoạt động, sự kiện, chương trình và thông báo mới nhất do Quỹ HBVL tổ chức.",
+          "descriptionEn": "Latest activities, events, programs, and announcements organized by the scholarship fund.",
+          "cardType": "CARD"
+        },
+        {
+          "slug": "guong-mat-vuon-len",
+          "nameVi": "Gương mặt Vươn Lên",
+          "nameEn": "Rise Up Faces",
+          "descriptionVi": "Giới thiệu cá nhân đang sinh hoạt tại Quỹ có thành tích nổi bật trong học tập hoặc nghề nghiệp.",
+          "descriptionEn": "Profiles of members with strong academic, career, or community achievements.",
+          "cardType": "PROFILE"
+        },
+        {
+          "slug": "tiep-noi",
+          "nameVi": "Tiếp nối",
+          "nameEn": "Giving Back",
+          "descriptionVi": "Câu chuyện anh chị từng nhận học bổng đã trưởng thành, quay lại đóng góp, hỗ trợ và chia sẻ kinh nghiệm.",
+          "descriptionEn": "Alumni stories about returning to support, mentor, and share practical experience.",
+          "cardType": "CARD"
+        }
+      ]
+    },
+    {
+      "slug": "dong-du-ky",
+      "nameVi": "ĐÔNG DU KÝ",
+      "nameEn": "DONG DU JOURNEYS",
+      "navEn": "JOURNEYS",
+      "summaryVi": "Không gian ghi lại hành trình, bản đồ kết nối và những địa điểm đáng trải nghiệm.",
+      "summaryEn": "A space for journeys, connection maps, and meaningful places to experience.",
+      "items": [
+        {
+          "slug": "ban-do-vuon-len",
+          "nameVi": "Bản đồ Vươn Lên",
+          "nameEn": "Rise Up Map",
+          "descriptionVi": "Bản đồ Việt Nam đánh dấu nơi thành viên và cựu thành viên HBVL đang hoạt động để kết nối, gặp gỡ hoặc lên kế hoạch chuyến đi chung.",
+          "descriptionEn": "A Vietnam map showing where members and alumni are active, helping people connect and plan visits or trips.",
+          "cardType": "CARD"
+        },
+        {
+          "slug": "nhat-ky-chuyen-di",
+          "nameVi": "Nhật ký chuyến đi",
+          "nameEn": "Travel Journals",
+          "descriptionVi": "Tổng hợp câu chuyện về những chuyến đi chơi, đi học, đi làm với kỷ niệm, bài học và ý nghĩa muốn chia sẻ.",
+          "descriptionEn": "Stories from trips for study, work, or discovery, with memories, lessons, and reflections.",
+          "cardType": "CARD"
+        },
+        {
+          "slug": "gioi-thieu-dia-diem",
+          "nameVi": "Giới thiệu địa điểm",
+          "nameEn": "Place Spotlights",
+          "descriptionVi": "Gợi ý địa điểm đã được thành viên khám phá, nêu cảnh đẹp, điểm thú vị, giá trị văn hóa và lý do nên trải nghiệm.",
+          "descriptionEn": "Recommended places explored by members, including scenery, cultural value, and reasons to visit.",
+          "cardType": "CARD"
+        }
+      ]
+    },
+    {
+      "slug": "so-tay-kien-thuc",
+      "nameVi": "SỔ TAY KIẾN THỨC",
+      "nameEn": "KNOWLEDGE HANDBOOK",
+      "navEn": "HANDBOOK",
+      "summaryVi": "Các mẹo học tập, kỹ năng sống và góc nhìn tích cực từ đời sống quanh ta.",
+      "summaryEn": "Study tips, life skills, and positive observations from everyday life.",
+      "items": [
+        {
+          "slug": "bi-kip",
+          "nameVi": "Bí kíp",
+          "nameEn": "Tips",
+          "descriptionVi": "Chia sẻ mẹo nhỏ trong cuộc sống, phương pháp học, cách ghi nhớ nhanh, truyền động lực và rèn luyện tư duy phản biện.",
+          "descriptionEn": "Practical tips for life, learning methods, memory techniques, motivation, and critical thinking.",
+          "cardType": "TIP"
+        },
+        {
+          "slug": "the-gioi-quanh-ta",
+          "nameVi": "Thế giới quanh ta",
+          "nameEn": "Around Us",
+          "descriptionVi": "Bài viết ngắn, câu chuyện đời sống, kiến thức khoa học, lối sống hữu ích và những điều đọng lại trong quan sát hằng ngày.",
+          "descriptionEn": "Short reflections, daily-life stories, science notes, useful lifestyles, and observations that stay with us.",
+          "cardType": "TIP"
+        }
+      ]
+    },
+    {
+      "slug": "goc-sach-hay",
+      "nameVi": "GÓC SÁCH HAY",
+      "nameEn": "BOOK CORNER",
+      "navEn": "BOOKS",
+      "summaryVi": "Tóm tắt và cảm nhận về những cuốn sách nuôi dưỡng nghị lực, tri thức và lối sống đẹp.",
+      "summaryEn": "Summaries and reflections on books that nurture resilience, knowledge, and meaningful living.",
+      "items": [
+        {
+          "slug": "tom-tat-sach",
+          "nameVi": "Tóm tắt sách",
+          "nameEn": "Book Summaries",
+          "descriptionVi": "Tổng hợp sách về nghị lực, vượt khó, vươn lên trong học tập và cuộc sống do thành viên trong Quỹ gợi ý.",
+          "descriptionEn": "Recommended books about resilience, overcoming hardship, and rising through education and life.",
+          "cardType": "CARD"
+        },
+        {
+          "slug": "viet-cam-nhan-sach",
+          "nameVi": "Viết cảm nhận sách",
+          "nameEn": "Book Reflections",
+          "descriptionVi": "Cảm nhận về những cuốn sách có ý nghĩa đặc biệt, kể lại kỷ niệm, động lực và giá trị mà sách mang lại.",
+          "descriptionEn": "Personal reflections on meaningful books, memories, motivation, and values they bring.",
+          "cardType": "CARD"
+        }
+      ]
+    },
+    {
+      "slug": "sinh-hoat",
+      "nameVi": "SINH HOẠT",
+      "nameEn": "COMMUNITY ACTIVITIES",
+      "navEn": "ACTIVITIES",
+      "summaryVi": "Kho tư liệu phục vụ sinh hoạt tập thể, trò chơi cộng đồng và bài hát truyền thống.",
+      "summaryEn": "Resources for group activities, community games, and traditional songs.",
+      "items": [
+        {
+          "slug": "tro-choi-sinh-hoat-tap-the",
+          "nameVi": "Trò chơi/sinh hoạt tập thể",
+          "nameEn": "Group Games",
+          "descriptionVi": "Tổng hợp trò chơi vòng tròn, trò chơi dân gian và kỹ năng tổ chức sinh hoạt cho thành viên hoặc các em nhỏ.",
+          "descriptionEn": "Circle games, folk games, and facilitation skills for members and children activities.",
+          "cardType": "CARD"
+        },
+        {
+          "slug": "tong-hop-bai-hat",
+          "nameVi": "Tổng hợp bài hát",
+          "nameEn": "Song Library",
+          "descriptionVi": "Kho lưu trữ các bài hát truyền thống của Quỹ và bài hát sinh hoạt cộng đồng vui tươi, tích cực.",
+          "descriptionEn": "A library of the fund traditional songs and positive community activity songs.",
+          "cardType": "SONG"
+        }
+      ]
+    }
+  ]
+}

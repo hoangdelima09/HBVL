@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.21.0
+  PNPM_VERSION: 12.10.1
+
+jobs:
+  quality:
+    name: Typecheck · lint · unit · build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:env # throw-away CI secrets, generated per run
+      - run: pnpm db:generate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test:unit
+      - run: pnpm build
+      - name: Dependency audit (fails on high/critical in production dependencies)
+        run: pnpm audit --prod --audit-level high
+
+  integration:
+    name: Integration + migration tests (real Postgres, Redis, S3, SMTP)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:env
+      - run: pnpm infra:up
+      - run: pnpm db:generate && pnpm --filter @hbvl/contracts build && pnpm --filter @hbvl/database build
+      - run: pnpm db:migrate && pnpm db:seed && pnpm storage:init
+      - run: pnpm test:integration
+      - run: pnpm test:migration # uses the SYNTHETIC fixture only; the real dump never enters CI
+      - if: always()
+        run: docker compose logs --no-color > compose.log || true
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: compose-logs, path: compose.log, retention-days: 3 }
+
+  e2e:
+    name: E2E + accessibility (production build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:env
+      - run: pnpm infra:up
+      - run: pnpm db:generate && pnpm --filter @hbvl/contracts build && pnpm --filter @hbvl/database build
+      - run: pnpm build
+      - run: pnpm --filter @hbvl/tests exec playwright install --with-deps chromium firefox
+      - run: pnpm test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: playwright-report, path: "playwright-report\ntest-results", retention-days: 3 }
+
+  images:
+    name: Docker images build (non-root, no secrets baked in)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build all targets
+        run: |
+          for t in api worker web tools; do
+            docker buildx build --target "$t" -t "hbvl-$t:ci" --load .
+          done
+      - name: Images run as an unprivileged user
+        run: |
+          for t in api worker web; do
+            test "$(docker run --rm --entrypoint id "hbvl-$t:ci" -u)" != "0"
+          done
+      - name: No .env / SQL / spreadsheets inside the runtime images
+        run: |
+          for t in api worker web; do
+            docker run --rm --entrypoint sh "hbvl-$t:ci" -c '! find / -xdev \( -name ".env" -o -name "*.sql" -o -name "*.xlsx" \) -not -path "*/node_modules/*" 2>/dev/null | grep -q .'
+          done

@@ -1,0 +1,881 @@
+{
+  "_generated": "scripts/migration/extract-province-data.mjs",
+  "_note": "code = legacy theme code (p11…), NOT an official administrative code. officialCode only for the 34 units, taken from data-source/vietnam-34-api file prefixes (thanglequoc/vietnamese-provinces-database); verify against Quyết định 19/2025/QĐ-TTg before relying on it.",
+  "current34": [
+    {
+      "nameVi": "Hà Nội",
+      "slug": "ha-noi",
+      "officialCode": "01",
+      "kind": "CITY",
+      "sortOrder": 0,
+      "code": "p11",
+      "nameEn": "Hanoi"
+    },
+    {
+      "nameVi": "Cao Bằng",
+      "slug": "cao-bang",
+      "officialCode": "04",
+      "kind": "PROVINCE",
+      "sortOrder": 1,
+      "code": "p20",
+      "nameEn": "Cao Bang"
+    },
+    {
+      "nameVi": "Tuyên Quang",
+      "slug": "tuyen-quang",
+      "officialCode": "08",
+      "kind": "PROVINCE",
+      "sortOrder": 2,
+      "code": "p43",
+      "nameEn": "Tuyen Quang"
+    },
+    {
+      "nameVi": "Điện Biên",
+      "slug": "dien-bien",
+      "officialCode": "11",
+      "kind": "PROVINCE",
+      "sortOrder": 3,
+      "code": "p22",
+      "nameEn": "Dien Bien"
+    },
+    {
+      "nameVi": "Lai Châu",
+      "slug": "lai-chau",
+      "officialCode": "12",
+      "kind": "PROVINCE",
+      "sortOrder": 4,
+      "code": "p29",
+      "nameEn": "Lai Chau"
+    },
+    {
+      "nameVi": "Sơn La",
+      "slug": "son-la",
+      "officialCode": "14",
+      "kind": "PROVINCE",
+      "sortOrder": 5,
+      "code": "p39",
+      "nameEn": "Son La"
+    },
+    {
+      "nameVi": "Lào Cai",
+      "slug": "lao-cai",
+      "officialCode": "15",
+      "kind": "PROVINCE",
+      "sortOrder": 6,
+      "code": "p32",
+      "nameEn": "Lao Cai"
+    },
+    {
+      "nameVi": "Thái Nguyên",
+      "slug": "thai-nguyen",
+      "officialCode": "19",
+      "kind": "PROVINCE",
+      "sortOrder": 7,
+      "code": "p41",
+      "nameEn": "Thai Nguyen"
+    },
+    {
+      "nameVi": "Lạng Sơn",
+      "slug": "lang-son",
+      "officialCode": "20",
+      "kind": "PROVINCE",
+      "sortOrder": 8,
+      "code": "p31",
+      "nameEn": "Lang Son"
+    },
+    {
+      "nameVi": "Quảng Ninh",
+      "slug": "quang-ninh",
+      "officialCode": "22",
+      "kind": "PROVINCE",
+      "sortOrder": 9,
+      "code": "p37",
+      "nameEn": "Quang Ninh"
+    },
+    {
+      "nameVi": "Bắc Ninh",
+      "slug": "bac-ninh",
+      "officialCode": "24",
+      "kind": "PROVINCE",
+      "sortOrder": 10,
+      "code": "p18",
+      "nameEn": "Bac Ninh"
+    },
+    {
+      "nameVi": "Phú Thọ",
+      "slug": "phu-tho",
+      "officialCode": "25",
+      "kind": "PROVINCE",
+      "sortOrder": 11,
+      "code": "p35",
+      "nameEn": "Phu Tho"
+    },
+    {
+      "nameVi": "Hải Phòng",
+      "slug": "hai-phong",
+      "officialCode": "31",
+      "kind": "CITY",
+      "sortOrder": 12,
+      "code": "p14",
+      "nameEn": "Hai Phong"
+    },
+    {
+      "nameVi": "Hưng Yên",
+      "slug": "hung-yen",
+      "officialCode": "33",
+      "kind": "PROVINCE",
+      "sortOrder": 13,
+      "code": "p27",
+      "nameEn": "Hung Yen"
+    },
+    {
+      "nameVi": "Ninh Bình",
+      "slug": "ninh-binh",
+      "officialCode": "37",
+      "kind": "PROVINCE",
+      "sortOrder": 14,
+      "code": "p34",
+      "nameEn": "Ninh Binh"
+    },
+    {
+      "nameVi": "Thanh Hóa",
+      "slug": "thanh-hoa",
+      "officialCode": "38",
+      "kind": "PROVINCE",
+      "sortOrder": 15,
+      "code": "p42",
+      "nameEn": "Thanh Hoa"
+    },
+    {
+      "nameVi": "Nghệ An",
+      "slug": "nghe-an",
+      "officialCode": "40",
+      "kind": "PROVINCE",
+      "sortOrder": 16,
+      "code": "p33",
+      "nameEn": "Nghe An"
+    },
+    {
+      "nameVi": "Hà Tĩnh",
+      "slug": "ha-tinh",
+      "officialCode": "42",
+      "kind": "PROVINCE",
+      "sortOrder": 17,
+      "code": "p26",
+      "nameEn": "Ha Tinh"
+    },
+    {
+      "nameVi": "Quảng Trị",
+      "slug": "quang-tri",
+      "officialCode": "44",
+      "kind": "PROVINCE",
+      "sortOrder": 18,
+      "code": "p38",
+      "nameEn": "Quang Tri"
+    },
+    {
+      "nameVi": "Huế",
+      "slug": "hue",
+      "officialCode": "46",
+      "kind": "CITY",
+      "sortOrder": 19,
+      "code": "p16",
+      "nameEn": "Hue"
+    },
+    {
+      "nameVi": "Đà Nẵng",
+      "slug": "da-nang",
+      "officialCode": "48",
+      "kind": "CITY",
+      "sortOrder": 20,
+      "code": "p13",
+      "nameEn": "Da Nang"
+    },
+    {
+      "nameVi": "Quảng Ngãi",
+      "slug": "quang-ngai",
+      "officialCode": "51",
+      "kind": "PROVINCE",
+      "sortOrder": 21,
+      "code": "p36",
+      "nameEn": "Quang Ngai"
+    },
+    {
+      "nameVi": "Gia Lai",
+      "slug": "gia-lai",
+      "officialCode": "52",
+      "kind": "PROVINCE",
+      "sortOrder": 22,
+      "code": "p25",
+      "nameEn": "Gia Lai"
+    },
+    {
+      "nameVi": "Khánh Hòa",
+      "slug": "khanh-hoa",
+      "officialCode": "56",
+      "kind": "PROVINCE",
+      "sortOrder": 23,
+      "code": "p28",
+      "nameEn": "Khanh Hoa"
+    },
+    {
+      "nameVi": "Đắk Lắk",
+      "slug": "dak-lak",
+      "officialCode": "66",
+      "kind": "PROVINCE",
+      "sortOrder": 24,
+      "code": "p21",
+      "nameEn": "Dak Lak"
+    },
+    {
+      "nameVi": "Lâm Đồng",
+      "slug": "lam-dong",
+      "officialCode": "68",
+      "kind": "PROVINCE",
+      "sortOrder": 25,
+      "code": "p30",
+      "nameEn": "Lam Dong"
+    },
+    {
+      "nameVi": "TP. Hồ Chí Minh",
+      "slug": "ho-chi-minh",
+      "officialCode": "79",
+      "kind": "CITY",
+      "sortOrder": 26,
+      "code": "p12",
+      "nameEn": "Ho Chi Minh City"
+    },
+    {
+      "nameVi": "Đồng Nai",
+      "slug": "dong-nai",
+      "officialCode": "75",
+      "kind": "PROVINCE",
+      "sortOrder": 27,
+      "code": "p23",
+      "nameEn": "Dong Nai"
+    },
+    {
+      "nameVi": "Tây Ninh",
+      "slug": "tay-ninh",
+      "officialCode": "80",
+      "kind": "PROVINCE",
+      "sortOrder": 28,
+      "code": "p40",
+      "nameEn": "Tay Ninh"
+    },
+    {
+      "nameVi": "Cần Thơ",
+      "slug": "can-tho",
+      "officialCode": "92",
+      "kind": "CITY",
+      "sortOrder": 29,
+      "code": "p15",
+      "nameEn": "Can Tho"
+    },
+    {
+      "nameVi": "Vĩnh Long",
+      "slug": "vinh-long",
+      "officialCode": "86",
+      "kind": "PROVINCE",
+      "sortOrder": 30,
+      "code": "p44",
+      "nameEn": "Vinh Long"
+    },
+    {
+      "nameVi": "Đồng Tháp",
+      "slug": "dong-thap",
+      "officialCode": "82",
+      "kind": "PROVINCE",
+      "sortOrder": 31,
+      "code": "p24",
+      "nameEn": "Dong Thap"
+    },
+    {
+      "nameVi": "Cà Mau",
+      "slug": "ca-mau",
+      "officialCode": "96",
+      "kind": "PROVINCE",
+      "sortOrder": 32,
+      "code": "p19",
+      "nameEn": "Ca Mau"
+    },
+    {
+      "nameVi": "An Giang",
+      "slug": "an-giang",
+      "officialCode": "91",
+      "kind": "PROVINCE",
+      "sortOrder": 33,
+      "code": "p17",
+      "nameEn": "An Giang"
+    }
+  ],
+  "legacy63": [
+    {
+      "nameVi": "Hà Nội",
+      "nameEn": "Hanoi",
+      "slug": "ha-noi",
+      "code": "p11",
+      "kind": "CITY",
+      "currentNameVi": "Hà Nội",
+      "sortOrder": 0
+    },
+    {
+      "nameVi": "Cao Bằng",
+      "nameEn": "Cao Bang",
+      "slug": "cao-bang",
+      "code": "p28",
+      "kind": "PROVINCE",
+      "currentNameVi": "Cao Bằng",
+      "sortOrder": 1
+    },
+    {
+      "nameVi": "Hà Giang",
+      "nameEn": "Ha Giang",
+      "slug": "ha-giang",
+      "code": "p35",
+      "kind": "PROVINCE",
+      "currentNameVi": "Tuyên Quang",
+      "sortOrder": 2
+    },
+    {
+      "nameVi": "Tuyên Quang",
+      "nameEn": "Tuyen Quang",
+      "slug": "tuyen-quang",
+      "code": "p70",
+      "kind": "PROVINCE",
+      "currentNameVi": "Tuyên Quang",
+      "sortOrder": 3
+    },
+    {
+      "nameVi": "Điện Biên",
+      "nameEn": "Dien Bien",
+      "slug": "dien-bien",
+      "code": "p31",
+      "kind": "PROVINCE",
+      "currentNameVi": "Điện Biên",
+      "sortOrder": 4
+    },
+    {
+      "nameVi": "Lai Châu",
+      "nameEn": "Lai Chau",
+      "slug": "lai-chau",
+      "code": "p45",
+      "kind": "PROVINCE",
+      "currentNameVi": "Lai Châu",
+      "sortOrder": 5
+    },
+    {
+      "nameVi": "Sơn La",
+      "nameEn": "Son La",
+      "slug": "son-la",
+      "code": "p62",
+      "kind": "PROVINCE",
+      "currentNameVi": "Sơn La",
+      "sortOrder": 6
+    },
+    {
+      "nameVi": "Yên Bái",
+      "nameEn": "Yen Bai",
+      "slug": "yen-bai",
+      "code": "p73",
+      "kind": "PROVINCE",
+      "currentNameVi": "Lào Cai",
+      "sortOrder": 7
+    },
+    {
+      "nameVi": "Lào Cai",
+      "nameEn": "Lao Cai",
+      "slug": "lao-cai",
+      "code": "p48",
+      "kind": "PROVINCE",
+      "currentNameVi": "Lào Cai",
+      "sortOrder": 8
+    },
+    {
+      "nameVi": "Bắc Kạn",
+      "nameEn": "Bac Kan",
+      "slug": "bac-kan",
+      "code": "p20",
+      "kind": "PROVINCE",
+      "currentNameVi": "Thái Nguyên",
+      "sortOrder": 9
+    },
+    {
+      "nameVi": "Thái Nguyên",
+      "nameEn": "Thai Nguyen",
+      "slug": "thai-nguyen",
+      "code": "p65",
+      "kind": "PROVINCE",
+      "currentNameVi": "Thái Nguyên",
+      "sortOrder": 10
+    },
+    {
+      "nameVi": "Lạng Sơn",
+      "nameEn": "Lang Son",
+      "slug": "lang-son",
+      "code": "p47",
+      "kind": "PROVINCE",
+      "currentNameVi": "Lạng Sơn",
+      "sortOrder": 11
+    },
+    {
+      "nameVi": "Quảng Ninh",
+      "nameEn": "Quang Ninh",
+      "slug": "quang-ninh",
+      "code": "p59",
+      "kind": "PROVINCE",
+      "currentNameVi": "Quảng Ninh",
+      "sortOrder": 12
+    },
+    {
+      "nameVi": "Bắc Giang",
+      "nameEn": "Bac Giang",
+      "slug": "bac-giang",
+      "code": "p19",
+      "kind": "PROVINCE",
+      "currentNameVi": "Bắc Ninh",
+      "sortOrder": 13
+    },
+    {
+      "nameVi": "Bắc Ninh",
+      "nameEn": "Bac Ninh",
+      "slug": "bac-ninh",
+      "code": "p21",
+      "kind": "PROVINCE",
+      "currentNameVi": "Bắc Ninh",
+      "sortOrder": 14
+    },
+    {
+      "nameVi": "Vĩnh Phúc",
+      "nameEn": "Vinh Phuc",
+      "slug": "vinh-phuc",
+      "code": "p72",
+      "kind": "PROVINCE",
+      "currentNameVi": "Phú Thọ",
+      "sortOrder": 15
+    },
+    {
+      "nameVi": "Hòa Bình",
+      "nameEn": "Hoa Binh",
+      "slug": "hoa-binh",
+      "code": "p40",
+      "kind": "PROVINCE",
+      "currentNameVi": "Phú Thọ",
+      "sortOrder": 16
+    },
+    {
+      "nameVi": "Phú Thọ",
+      "nameEn": "Phu Tho",
+      "slug": "phu-tho",
+      "code": "p54",
+      "kind": "PROVINCE",
+      "currentNameVi": "Phú Thọ",
+      "sortOrder": 17
+    },
+    {
+      "nameVi": "Hải Phòng",
+      "nameEn": "Hai Phong",
+      "slug": "hai-phong",
+      "code": "p13",
+      "kind": "CITY",
+      "currentNameVi": "Hải Phòng",
+      "sortOrder": 18
+    },
+    {
+      "nameVi": "Hải Dương",
+      "nameEn": "Hai Duong",
+      "slug": "hai-duong",
+      "code": "p38",
+      "kind": "PROVINCE",
+      "currentNameVi": "Hải Phòng",
+      "sortOrder": 19
+    },
+    {
+      "nameVi": "Thái Bình",
+      "nameEn": "Thai Binh",
+      "slug": "thai-binh",
+      "code": "p64",
+      "kind": "PROVINCE",
+      "currentNameVi": "Hưng Yên",
+      "sortOrder": 20
+    },
+    {
+      "nameVi": "Hưng Yên",
+      "nameEn": "Hung Yen",
+      "slug": "hung-yen",
+      "code": "p41",
+      "kind": "PROVINCE",
+      "currentNameVi": "Hưng Yên",
+      "sortOrder": 21
+    },
+    {
+      "nameVi": "Hà Nam",
+      "nameEn": "Ha Nam",
+      "slug": "ha-nam",
+      "code": "p36",
+      "kind": "PROVINCE",
+      "currentNameVi": "Ninh Bình",
+      "sortOrder": 22
+    },
+    {
+      "nameVi": "Nam Định",
+      "nameEn": "Nam Dinh",
+      "slug": "nam-dinh",
+      "code": "p50",
+      "kind": "PROVINCE",
+      "currentNameVi": "Ninh Bình",
+      "sortOrder": 23
+    },
+    {
+      "nameVi": "Ninh Bình",
+      "nameEn": "Ninh Binh",
+      "slug": "ninh-binh",
+      "code": "p52",
+      "kind": "PROVINCE",
+      "currentNameVi": "Ninh Bình",
+      "sortOrder": 24
+    },
+    {
+      "nameVi": "Thanh Hóa",
+      "nameEn": "Thanh Hoa",
+      "slug": "thanh-hoa",
+      "code": "p66",
+      "kind": "PROVINCE",
+      "currentNameVi": "Thanh Hóa",
+      "sortOrder": 25
+    },
+    {
+      "nameVi": "Nghệ An",
+      "nameEn": "Nghe An",
+      "slug": "nghe-an",
+      "code": "p51",
+      "kind": "PROVINCE",
+      "currentNameVi": "Nghệ An",
+      "sortOrder": 26
+    },
+    {
+      "nameVi": "Hà Tĩnh",
+      "nameEn": "Ha Tinh",
+      "slug": "ha-tinh",
+      "code": "p37",
+      "kind": "PROVINCE",
+      "currentNameVi": "Hà Tĩnh",
+      "sortOrder": 27
+    },
+    {
+      "nameVi": "Quảng Bình",
+      "nameEn": "Quang Binh",
+      "slug": "quang-binh",
+      "code": "p56",
+      "kind": "PROVINCE",
+      "currentNameVi": "Quảng Trị",
+      "sortOrder": 28
+    },
+    {
+      "nameVi": "Quảng Trị",
+      "nameEn": "Quang Tri",
+      "slug": "quang-tri",
+      "code": "p60",
+      "kind": "PROVINCE",
+      "currentNameVi": "Quảng Trị",
+      "sortOrder": 29
+    },
+    {
+      "nameVi": "Huế",
+      "nameEn": "Thua Thien Hue",
+      "slug": "hue",
+      "code": "p67",
+      "kind": "PROVINCE",
+      "currentNameVi": "Huế",
+      "sortOrder": 30
+    },
+    {
+      "nameVi": "Đà Nẵng",
+      "nameEn": "Da Nang",
+      "slug": "da-nang",
+      "code": "p14",
+      "kind": "CITY",
+      "currentNameVi": "Đà Nẵng",
+      "sortOrder": 31
+    },
+    {
+      "nameVi": "Quảng Nam",
+      "nameEn": "Quang Nam",
+      "slug": "quang-nam",
+      "code": "p57",
+      "kind": "PROVINCE",
+      "currentNameVi": "Đà Nẵng",
+      "sortOrder": 32
+    },
+    {
+      "nameVi": "Kon Tum",
+      "nameEn": "Kon Tum",
+      "slug": "kon-tum",
+      "code": "p44",
+      "kind": "PROVINCE",
+      "currentNameVi": "Quảng Ngãi",
+      "sortOrder": 33
+    },
+    {
+      "nameVi": "Quảng Ngãi",
+      "nameEn": "Quang Ngai",
+      "slug": "quang-ngai",
+      "code": "p58",
+      "kind": "PROVINCE",
+      "currentNameVi": "Quảng Ngãi",
+      "sortOrder": 34
+    },
+    {
+      "nameVi": "Bình Định",
+      "nameEn": "Binh Dinh",
+      "slug": "binh-dinh",
+      "code": "p24",
+      "kind": "PROVINCE",
+      "currentNameVi": "Gia Lai",
+      "sortOrder": 35
+    },
+    {
+      "nameVi": "Gia Lai",
+      "nameEn": "Gia Lai",
+      "slug": "gia-lai",
+      "code": "p34",
+      "kind": "PROVINCE",
+      "currentNameVi": "Gia Lai",
+      "sortOrder": 36
+    },
+    {
+      "nameVi": "Ninh Thuận",
+      "nameEn": "Ninh Thuan",
+      "slug": "ninh-thuan",
+      "code": "p53",
+      "kind": "PROVINCE",
+      "currentNameVi": "Khánh Hòa",
+      "sortOrder": 37
+    },
+    {
+      "nameVi": "Khánh Hòa",
+      "nameEn": "Khanh Hoa",
+      "slug": "khanh-hoa",
+      "code": "p42",
+      "kind": "PROVINCE",
+      "currentNameVi": "Khánh Hòa",
+      "sortOrder": 38
+    },
+    {
+      "nameVi": "Phú Yên",
+      "nameEn": "Phu Yen",
+      "slug": "phu-yen",
+      "code": "p55",
+      "kind": "PROVINCE",
+      "currentNameVi": "Đắk Lắk",
+      "sortOrder": 39
+    },
+    {
+      "nameVi": "Đắk Lắk",
+      "nameEn": "Dak Lak",
+      "slug": "dak-lak",
+      "code": "p29",
+      "kind": "PROVINCE",
+      "currentNameVi": "Đắk Lắk",
+      "sortOrder": 40
+    },
+    {
+      "nameVi": "Đắk Nông",
+      "nameEn": "Dak Nong",
+      "slug": "dak-nong",
+      "code": "p30",
+      "kind": "PROVINCE",
+      "currentNameVi": "Lâm Đồng",
+      "sortOrder": 41
+    },
+    {
+      "nameVi": "Bình Thuận",
+      "nameEn": "Binh Thuan",
+      "slug": "binh-thuan",
+      "code": "p26",
+      "kind": "PROVINCE",
+      "currentNameVi": "Lâm Đồng",
+      "sortOrder": 42
+    },
+    {
+      "nameVi": "Lâm Đồng",
+      "nameEn": "Lam Dong",
+      "slug": "lam-dong",
+      "code": "p46",
+      "kind": "PROVINCE",
+      "currentNameVi": "Lâm Đồng",
+      "sortOrder": 43
+    },
+    {
+      "nameVi": "TP. Hồ Chí Minh",
+      "nameEn": "Ho Chi Minh City",
+      "slug": "ho-chi-minh",
+      "code": "p12",
+      "kind": "CITY",
+      "currentNameVi": "TP. Hồ Chí Minh",
+      "sortOrder": 44
+    },
+    {
+      "nameVi": "Bà Rịa - Vũng Tàu",
+      "nameEn": "Ba Ria-Vung Tau",
+      "slug": "ba-ria-vung-tau",
+      "code": "p17",
+      "kind": "PROVINCE",
+      "currentNameVi": "TP. Hồ Chí Minh",
+      "sortOrder": 45
+    },
+    {
+      "nameVi": "Bình Dương",
+      "nameEn": "Binh Duong",
+      "slug": "binh-duong",
+      "code": "p23",
+      "kind": "PROVINCE",
+      "currentNameVi": "TP. Hồ Chí Minh",
+      "sortOrder": 46
+    },
+    {
+      "nameVi": "Bình Phước",
+      "nameEn": "Binh Phuoc",
+      "slug": "binh-phuoc",
+      "code": "p25",
+      "kind": "PROVINCE",
+      "currentNameVi": "Đồng Nai",
+      "sortOrder": 47
+    },
+    {
+      "nameVi": "Đồng Nai",
+      "nameEn": "Dong Nai",
+      "slug": "dong-nai",
+      "code": "p32",
+      "kind": "PROVINCE",
+      "currentNameVi": "Đồng Nai",
+      "sortOrder": 48
+    },
+    {
+      "nameVi": "Long An",
+      "nameEn": "Long An",
+      "slug": "long-an",
+      "code": "p49",
+      "kind": "PROVINCE",
+      "currentNameVi": "Tây Ninh",
+      "sortOrder": 49
+    },
+    {
+      "nameVi": "Tây Ninh",
+      "nameEn": "Tay Ninh",
+      "slug": "tay-ninh",
+      "code": "p63",
+      "kind": "PROVINCE",
+      "currentNameVi": "Tây Ninh",
+      "sortOrder": 50
+    },
+    {
+      "nameVi": "Cần Thơ",
+      "nameEn": "Can Tho",
+      "slug": "can-tho",
+      "code": "p15",
+      "kind": "CITY",
+      "currentNameVi": "Cần Thơ",
+      "sortOrder": 51
+    },
+    {
+      "nameVi": "Sóc Trăng",
+      "nameEn": "Soc Trang",
+      "slug": "soc-trang",
+      "code": "p61",
+      "kind": "PROVINCE",
+      "currentNameVi": "Cần Thơ",
+      "sortOrder": 52
+    },
+    {
+      "nameVi": "Hậu Giang",
+      "nameEn": "Hau Giang",
+      "slug": "hau-giang",
+      "code": "p39",
+      "kind": "PROVINCE",
+      "currentNameVi": "Cần Thơ",
+      "sortOrder": 53
+    },
+    {
+      "nameVi": "Bến Tre",
+      "nameEn": "Ben Tre",
+      "slug": "ben-tre",
+      "code": "p22",
+      "kind": "PROVINCE",
+      "currentNameVi": "Vĩnh Long",
+      "sortOrder": 54
+    },
+    {
+      "nameVi": "Trà Vinh",
+      "nameEn": "Tra Vinh",
+      "slug": "tra-vinh",
+      "code": "p69",
+      "kind": "PROVINCE",
+      "currentNameVi": "Vĩnh Long",
+      "sortOrder": 55
+    },
+    {
+      "nameVi": "Vĩnh Long",
+      "nameEn": "Vinh Long",
+      "slug": "vinh-long",
+      "code": "p71",
+      "kind": "PROVINCE",
+      "currentNameVi": "Vĩnh Long",
+      "sortOrder": 56
+    },
+    {
+      "nameVi": "Tiền Giang",
+      "nameEn": "Tien Giang",
+      "slug": "tien-giang",
+      "code": "p68",
+      "kind": "PROVINCE",
+      "currentNameVi": "Đồng Tháp",
+      "sortOrder": 57
+    },
+    {
+      "nameVi": "Đồng Tháp",
+      "nameEn": "Dong Thap",
+      "slug": "dong-thap",
+      "code": "p33",
+      "kind": "PROVINCE",
+      "currentNameVi": "Đồng Tháp",
+      "sortOrder": 58
+    },
+    {
+      "nameVi": "Bạc Liêu",
+      "nameEn": "Bac Lieu",
+      "slug": "bac-lieu",
+      "code": "p18",
+      "kind": "PROVINCE",
+      "currentNameVi": "Cà Mau",
+      "sortOrder": 59
+    },
+    {
+      "nameVi": "Cà Mau",
+      "nameEn": "Ca Mau",
+      "slug": "ca-mau",
+      "code": "p27",
+      "kind": "PROVINCE",
+      "currentNameVi": "Cà Mau",
+      "sortOrder": 60
+    },
+    {
+      "nameVi": "Kiên Giang",
+      "nameEn": "Kien Giang",
+      "slug": "kien-giang",
+      "code": "p43",
+      "kind": "PROVINCE",
+      "currentNameVi": "An Giang",
+      "sortOrder": 61
+    },
+    {
+      "nameVi": "An Giang",
+      "nameEn": "An Giang",
+      "slug": "an-giang",
+      "code": "p16",
+      "kind": "PROVINCE",
+      "currentNameVi": "An Giang",
+      "sortOrder": 62
+    }
+  ]
+}
