@@ -2,7 +2,7 @@
 // Generates a local .env (and .runtime/seaweedfs-s3.json) from .env.example with random secrets.
 // Idempotent: refuses to overwrite an existing .env unless --force is given.
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,8 +49,9 @@ set('LEGACY_MYSQL_URL', `mysql://root:${secrets.LEGACY_MYSQL_PASSWORD}@127.0.0.1
 
 writeFileSync(envPath, text, { mode: 0o600 });
 mkdirSync(resolve(root, '.runtime'), { recursive: true });
+const s3ConfigPath = resolve(root, '.runtime/seaweedfs-s3.json');
 writeFileSync(
-  resolve(root, '.runtime/seaweedfs-s3.json'),
+  s3ConfigPath,
   JSON.stringify(
     {
       identities: [
@@ -64,6 +65,9 @@ writeFileSync(
     null,
     2,
   ),
-  { mode: 0o600 },
+  { mode: 0o644 },
 );
+// Bind-mounted read-only into the SeaweedFS container, which runs as a different uid than the host user
+// (e.g. GitHub runner uid 1001 vs container uid 1000): a 0600 file is unreadable there. Dev-only credentials.
+chmodSync(s3ConfigPath, 0o644);
 console.log('Wrote .env and .runtime/seaweedfs-s3.json (both git-ignored).');
