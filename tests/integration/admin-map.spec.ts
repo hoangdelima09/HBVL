@@ -248,7 +248,12 @@ describe('admin members: full editing', () => {
     const csv = await ac.get('/admin/members/export?province=ca-mau');
     expect(csv.status).toBe(200);
     expect(csv.headers['content-type']).toMatch(/text\/csv/);
-    expect(csv.text.replace(/^﻿/, '').split('\r\n').filter(Boolean)).toEqual(['name,province,trang_thai,hien_thi', 'B Hai,Cà Mau,Hoạt động,Ẩn', 'C Ba,Cà Mau,Hoạt động,Hiện']);
+    expect(
+      csv.text
+        .replace(/^\uFEFF/, '')
+        .split('\r\n')
+        .filter(Boolean),
+    ).toEqual(['name,province,trang_thai,hien_thi', 'B Hai,Cà Mau,Hoạt động,Ẩn', 'C Ba,Cà Mau,Hoạt động,Hiện']);
 
     const gone = await ac.post('/admin/members/bulk', { ids: [ids['B Hai'], ids['D Bốn']], action: 'delete' });
     expect(gone.body.done).toBe(2);
