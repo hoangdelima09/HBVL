@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { apiClient, uiLogin, watchErrors } from './support/helpers';
 
 const POST = '/bai-viet/bai-hat-sinh-hoat-vui';

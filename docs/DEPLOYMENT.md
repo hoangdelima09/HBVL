@@ -28,6 +28,7 @@ Sinh bí mật **riêng cho từng môi trường** (`openssl rand -base64 48`; 
 | S3 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET_PRIVATE`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_FORCE_PATH_STYLE` |
 | Mail | `SMTP_HOST/PORT/SECURE/USER/PASSWORD`, `MAIL_FROM`, `CONTACT_INBOX_EMAIL` |
 | Bí mật | `CSRF_SECRET`, `TOKEN_HASH_PEPPER`, `MFA_ENCRYPTION_KEY` |
+| CAPTCHA | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` — key thật từ dash.cloudflare.com → Turnstile (tên miền = `SITE_DOMAIN`); API **từ chối khởi động** với key thử nghiệm |
 | Giới hạn | `GLOBAL_RATE_LIMIT_PER_MIN` (mặc định 1200/IP/phút), `RATE_LIMIT_MULTIPLIER=1` (**giữ 1**) |
 
 ## 3. Triển khai bằng Compose (tham chiếu)
@@ -63,6 +64,9 @@ Xem `MIGRATION.md` (§1 quy trình, §7 cutover/rollback). Tóm tắt: khôi ph�
 - Caddy (đi kèm) chỉ proxy tới `web:3100`; Next chuyển `/api/v1/*` sang API qua `API_INTERNAL_URL` (đọc lúc chạy). Có thể định tuyến `/api/v1` thẳng tới API ở proxy nếu muốn.
 - HTML công khai ẩn danh **không có cookie và không chứa dữ liệu cá nhân** ⇒ có thể cache ở CDN (đã kiểm: smoke "no Set-Cookie"); bỏ qua cache khi có cookie phiên. Ảnh phục vụ qua `/api/v1/media/:id/:variant` với header cache phù hợp.
 - Đặt `TRUST_PROXY` đúng số hop để rate-limit/audit thấy IP thật; sai giá trị có thể cho phép giả mạo `X-Forwarded-For`.
+- **Cloudflare (khuyên dùng, chống DDoS):** bật proxy (đám mây cam) cho bản ghi DNS, SSL/TLS = **Full (strict)**. Caddyfile chỉ tin `CF-Connecting-IP` khi kết nối đến từ dải IP của Cloudflare (`trusted_proxies`), nên rate-limit/CAPTCHA/nhật ký thấy IP thật của người dùng; header giả từ nơi khác bị bỏ qua. Dải IP lấy từ https://www.cloudflare.com/ips/ — cập nhật nếu Cloudflare đổi. `TRUST_PROXY` giữ nguyên.
+- **Giấu IP gốc:** khi đã dùng Cloudflare, chỉ cho cổng 80/443 nhận kết nối từ dải IP Cloudflare bằng **firewall của nhà cung cấp VPS** (Docker tự mở cổng và **bỏ qua `ufw`**), hoặc dùng Cloudflare Tunnel (không mở cổng nào). Không để lộ IP VPS ở bản ghi DNS khác (ví dụ `mail.`, `ftp.` không qua proxy).
+- Caddy đặt timeout đọc header/body (chống slowloris) và giới hạn body 8 MB; API giới hạn mọi request theo IP (`GLOBAL_RATE_LIMIT_PER_MIN`) và từng endpoint nhạy cảm (đăng nhập, đăng ký, quên mật khẩu, bình luận, upload, chatbot).
 
 ## 7. Triển khai bản mới / rollback
 1. `docker compose … build` (hoặc kéo image đã gắn thẻ `HBVL_TAG`).

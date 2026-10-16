@@ -17,8 +17,19 @@ export interface AuthOptions {
 const AUTH_META = 'hbvl:auth';
 const ALLOW_MUST_CHANGE = 'hbvl:allow-must-change';
 
+const ALLOW_BEFORE_MFA = 'hbvl:allow-before-mfa';
+
 /** Handlers that stay usable while a forced password change is pending (change password, sign out, MFA step). */
 export const AllowWhilePasswordChangePending = () => SetMetadata(ALLOW_MUST_CHANGE, true);
+
+/**
+ * Handlers usable after the password step but BEFORE the two-factor step (verify the code, sign out, recover a lost authenticator).
+ * Everything else refuses a session whose two-factor step is still pending.
+ */
+export const AllowBeforeMfa = () => SetMetadata(ALLOW_BEFORE_MFA, true);
+
+/** A signed-in session of an account with two-factor authentication that has not completed the second step yet. */
+export const mfaPending = (a: AuthContext | undefined): boolean => !!a && a.user.mfaEnabled && !a.session.mfaVerifiedAt;
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -28,6 +39,11 @@ export class AuthGuard implements CanActivate {
       (Reflect.getMetadata(AUTH_META, context.getHandler()) as AuthOptions | undefined) ?? (Reflect.getMetadata(AUTH_META, context.getClass()) as AuthOptions | undefined) ?? {};
     const auth = req.auth;
     if (!auth) throw E.unauthenticated();
+    // Two-factor authentication applies to EVERY role that enabled it, not only to the admin area: until the code is entered the
+    // session can only finish (or recover) the second step. Without this, a password alone would open a member's protected account.
+    if (mfaPending(auth) && !Reflect.getMetadata(ALLOW_BEFORE_MFA, context.getHandler())) {
+      throw E.forbidden('Cần xác thực hai lớp để tiếp tục.', 'MFA_REQUIRED');
+    }
     if (auth.user.mustChangePassword && !Reflect.getMetadata(ALLOW_MUST_CHANGE, context.getHandler())) {
       throw E.forbidden('Bạn cần đổi mật khẩu trước khi tiếp tục.', 'PASSWORD_CHANGE_REQUIRED');
     }
@@ -58,5 +74,8 @@ export const CurrentAuth = createParamDecorator((_: unknown, ctx: ExecutionConte
   return req.auth;
 });
 
-/** Optional auth: the context if a valid session exists, otherwise undefined. */
-export const MaybeAuth = createParamDecorator((_: unknown, ctx: ExecutionContext): AuthContext | undefined => ctx.switchToHttp().getRequest<Request>().auth);
+/** Optional auth: the context if a valid, fully signed-in session exists (two-factor step done when enabled), otherwise undefined. */
+export const MaybeAuth = createParamDecorator((_: unknown, ctx: ExecutionContext): AuthContext | undefined => {
+  const a = ctx.switchToHttp().getRequest<Request>().auth;
+  return mfaPending(a) ? undefined : a;
+});

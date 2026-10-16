@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { noHorizontalScroll, watchErrors } from './support/helpers';
 
 test.describe('guest browsing (real browser, production build)', () => {
@@ -74,7 +74,7 @@ test.describe('guest browsing (real browser, production build)', () => {
 
   test('contact page shows organisation info, sign-in gate for the form', async ({ page }) => {
     await page.goto('/lien-he');
-    await expect(page.locator('#main-content').getByText('43D/46 Hồ Văn Huê')).toBeVisible();
+    await expect(page.locator('#main-content').getByText('43D/46 Hồ Văn Huê').first()).toBeVisible();
     await expect(page.locator('#main-content').getByRole('link', { name: 'quykhuyenhocdongdu@gmail.com' })).toHaveAttribute('href', 'mailto:quykhuyenhocdongdu@gmail.com');
     await expect(page.getByText('Khách chưa đăng nhập chỉ có thể xem nội dung')).toBeVisible();
   });
@@ -153,19 +153,94 @@ test.describe('header & mobile menu', () => {
     expect(await page.evaluate(() => document.body.style.overflow)).toBe('');
   });
 
-  test('no horizontal overflow at 390 / 768 / 1024 / 1440 on key pages', async ({ page }) => {
+  test('no horizontal overflow at 360 / 390 / 768 / 1024 / 1440 on key pages', async ({ page }) => {
     for (const [w, h] of [
+      [360, 740],
       [390, 844],
       [768, 1024],
       [1024, 768],
       [1440, 900],
     ] as const) {
       await page.setViewportSize({ width: w, height: h });
-      for (const path of ['/', '/category/dong-du-ky/ban-do-vuon-len', '/bai-viet/hoc-bong-dong-thap-nam-nay', '/lien-he', '/dang-nhap-thanh-vien', '/thong-bao']) {
+      for (const path of [
+        '/',
+        '/category/dong-du-ky/ban-do-vuon-len',
+        '/bai-viet/hoc-bong-dong-thap-nam-nay',
+        '/lien-he',
+        '/dang-nhap-thanh-vien',
+        '/thong-bao',
+        '/tim-kiem?q=dong',
+        '/su-kien',
+      ]) {
         await page.goto(path);
         await page.waitForLoadState('networkidle');
         await noHorizontalScroll(page);
       }
+    }
+  });
+
+  test('the search page keeps its submit button on screen on a small phone', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto('/tim-kiem?q=dong');
+    const button = page.locator('#main-content form[role="search"]').getByRole('button', { name: 'Tìm kiếm' });
+    await expect(button).toBeInViewport({ ratio: 1 });
+    const box = (await button.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+  });
+
+  test('the site name is never cut off on desktop, in any language, and the menu stays on screen', async ({ page }) => {
+    for (const w of [1280, 1366, 1440, 1920]) {
+      await page.setViewportSize({ width: w, height: 800 });
+      for (const prefix of ['', '/en', '/ja']) {
+        await page.goto(prefix || '/');
+        const state = await page.evaluate(() => {
+          const name = document.querySelector('header a span span')!;
+          const offScreen = [...document.querySelectorAll('header nav a, header nav button, header nav input')].filter((e) => {
+            const r = e.getBoundingClientRect();
+            return r.width > 0 && (r.right > innerWidth + 1 || r.left < -1);
+          }).length;
+          return { cut: name.scrollWidth - name.clientWidth, offScreen, headerHeight: document.querySelector('header')!.getBoundingClientRect().height };
+        });
+        expect(state.cut, `site name cut at ${w}px ${prefix || '/vi'}`).toBeLessThanOrEqual(1);
+        expect(state.offScreen, `menu items off screen at ${w}px ${prefix || '/vi'}`).toBe(0);
+        expect(state.headerHeight, `header wrapped at ${w}px ${prefix || '/vi'}`).toBeLessThan(90);
+      }
+    }
+  });
+});
+
+test.describe('contact page map', () => {
+  test('shows a small Google map of the published address; clicking it opens that address on Google Maps', async ({ page, context }) => {
+    const res = await page.goto('/lien-he');
+    expect(res!.headers()['content-security-policy']).toContain('https://www.google.com');
+    const address = '43D/46 Hồ Văn Huê, P. Đức Nhuận, TP. HCM';
+    await expect(page.getByText(address).first()).toBeVisible();
+
+    const frame = page.getByTestId('contact-map');
+    const src = decodeURIComponent((await frame.getAttribute('src'))!);
+    expect(src).toContain('https://www.google.com/maps?q=' + address);
+    expect(src).toContain('output=embed');
+
+    const link = page.getByTestId('contact-map-link');
+    await expect(link).toHaveAccessibleName(/Google Maps/);
+    const href = (await link.getAttribute('href'))!;
+    expect(decodeURIComponent(href)).toBe('https://www.google.com/maps/search/?api=1&query=' + address);
+    await expect(link).toHaveAttribute('rel', /noopener/);
+    // a click anywhere on the map goes to Google Maps in a new tab (the request itself is not needed for the assertion)
+    const box = (await frame.boundingBox())!;
+    const [popup] = await Promise.all([context.waitForEvent('page'), page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)]);
+    expect(decodeURIComponent(popup.url())).toContain('google.com/maps/search/?api=1&query=' + address);
+    await popup.close();
+  });
+
+  test('the Japanese and English pages use the same address for the map', async ({ page }) => {
+    for (const [prefix, label] of [
+      ['/en', 'Open in Google Maps'],
+      ['/ja', 'Google マップで開く'],
+    ] as const) {
+      await page.goto(`${prefix}/lien-he`);
+      await expect(page.getByTestId('contact-map-link')).toContainText(label);
+      expect(decodeURIComponent((await page.getByTestId('contact-map').getAttribute('src'))!)).toContain('43D/46 Hồ Văn Huê');
     }
   });
 });

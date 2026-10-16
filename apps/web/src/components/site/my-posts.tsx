@@ -93,36 +93,45 @@ export function MyPosts({ locale }: { locale: Locale }) {
         </div>
       ) : (
         <>
-          <ul className="mt-6 space-y-3">
+          <ul className="mt-6 space-y-3.5">
             {data.items.map((r) => {
               const s = STATUS[r.status];
               const editable = r.status === 'DRAFT' || r.status === 'CHANGES_REQUESTED';
               return (
-                <li key={r.id} className="rounded-lg border border-line bg-white p-5 shadow-card" data-testid="my-post">
+                <li
+                  key={r.id}
+                  className="group rounded-2xl border border-line bg-white p-6 shadow-card transition-all duration-200 hover:border-brand-200 hover:shadow-lift"
+                  data-testid="my-post"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="font-serif text-xl font-semibold">{r.title || t('(chưa có tiêu đề)', '(untitled)')}</h2>
-                      <p className="mt-1 text-sm text-muted">
+                      <h2 className="font-serif text-xl font-bold tracking-tight text-ink group-hover:text-brand-900 transition-colors">
+                        {r.title || t('(chưa có tiêu đề)', '(untitled)')}
+                      </h2>
+                      <p className="mt-1.5 text-xs text-muted">
                         {t('Cập nhật', 'Updated')} {formatDate(locale, r.updatedAt, true)}
                       </p>
                     </div>
                     <Badge tone={s?.tone}>{t(s?.vi ?? r.status, s?.en ?? r.status)}</Badge>
                   </div>
                   {r.feedback && (
-                    <p className="mt-3 whitespace-pre-wrap rounded-md bg-accent-100 px-3 py-2 text-sm text-amber-900">
-                      <strong>{r.feedback.action === 'REJECT' ? t('Từ chối: ', 'Rejected: ') : t('Yêu cầu sửa: ', 'Changes requested: ')}</strong>
+                    <div className="mt-3.5 whitespace-pre-wrap rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950 shadow-subtle">
+                      <strong className="font-semibold">{r.feedback.action === 'REJECT' ? t('Từ chối: ', 'Rejected: ') : t('Yêu cầu sửa: ', 'Changes requested: ')}</strong>
                       {r.feedback.reason}
-                    </p>
+                    </div>
                   )}
-                  <div className="mt-3 flex gap-4 text-sm font-semibold">
+                  <div className="mt-4 flex gap-4 text-sm font-semibold">
                     {editable && (
-                      <Link className="inline-flex items-center gap-1 text-brand-700 underline" href={localePath(locale, `/gui-bai/${r.id}`)}>
+                      <Link
+                        className="inline-flex items-center gap-1.5 text-brand-700 hover:text-brand-900 underline underline-offset-4"
+                        href={localePath(locale, `/gui-bai/${r.id}`)}
+                      >
                         <Pencil className="h-3.5 w-3.5" aria-hidden />
                         {t('Sửa / viết tiếp', 'Edit / continue')}
                       </Link>
                     )}
                     {r.status === 'PUBLISHED' && r.slug && (
-                      <Link className="text-brand-700 underline" href={localePath(locale, `/bai-viet/${r.slug}`)}>
+                      <Link className="text-brand-700 hover:text-brand-900 underline underline-offset-4" href={localePath(locale, `/bai-viet/${r.slug}`)}>
                         {t('Xem bài đã đăng', 'View published post')}
                       </Link>
                     )}

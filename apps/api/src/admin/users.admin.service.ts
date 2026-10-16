@@ -2,6 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { normalizeEmail, normalizeUsername } from '@hbvl/contracts';
 import { Prisma, PrismaClient, type Role, type UserStatus } from '@hbvl/database';
 import { AuditService } from '../audit/audit.service';
+import { PORTAL_SLUG } from '../auth/auth.service';
+import { AvatarService } from '../media/avatar.service';
+import { avatarUrl } from '../media/media-url';
 import type { AuthContext } from '../auth/auth.types';
 import { PasswordService } from '../auth/password.service';
 import { TokenService } from '../auth/token.service';
@@ -24,6 +27,7 @@ const userSelect = {
   restrictedAt: true,
   restrictedUntil: true,
   restrictionReason: true,
+  avatarAssetId: true,
 } satisfies Prisma.UserSelect;
 
 /**
@@ -40,6 +44,7 @@ export class UsersAdminService {
     private readonly tokens: TokenService,
     private readonly passwords: PasswordService,
     private readonly outbox: OutboxService,
+    private readonly avatars: AvatarService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -61,7 +66,13 @@ export class UsersAdminService {
       this.prisma.user.count({ where }),
       this.prisma.user.findMany({ where, select: userSelect, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
     ]);
-    return { items, page: q.page, pageSize: q.pageSize, total, totalPages: Math.max(1, Math.ceil(total / q.pageSize)) };
+    return {
+      items: items.map((u) => ({ ...u, avatarUrl: avatarUrl(u.avatarAssetId, 'thumb') })),
+      page: q.page,
+      pageSize: q.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / q.pageSize)),
+    };
   }
 
   async get(id: string) {
@@ -91,24 +102,24 @@ export class UsersAdminService {
         },
         select: userSelect,
       });
-      await this.sendActivation(tx, u.id, u.displayName, u.email);
+      await this.sendActivation(tx, u.id, u.displayName, u.email, u.role);
       await this.audit.log({ actorId: a.user.id, actorRole: a.user.role, action: 'user.create', resourceType: 'user', resourceId: u.id, metadata: { role: input.role } }, tx);
       return u;
     });
   }
 
-  private async sendActivation(tx: Prisma.TransactionClient, userId: string, name: string, email: string) {
+  private async sendActivation(tx: Prisma.TransactionClient, userId: string, name: string, email: string, role: Role) {
     const { raw, code } = await this.tokens.issue(tx, userId, 'ACTIVATE_ACCOUNT', 7 * 24 * 3_600_000);
-    const mail = resetPasswordMail(name, `${this.env.PUBLIC_ORIGIN.replace(/\/$/, '')}/dat-lai-mat-khau?token=${encodeURIComponent(raw)}`, true, code);
+    const mail = resetPasswordMail(name, `${this.env.PUBLIC_ORIGIN.replace(/\/$/, '')}/dat-lai-mat-khau?token=${encodeURIComponent(raw)}&cong=${PORTAL_SLUG[role]}`, true, code);
     await this.outbox.enqueueEmail(tx, { to: email, kind: 'ACTIVATE_ACCOUNT', ...mail }, { aggregateType: 'user', aggregateId: userId });
   }
 
   async resendActivation(a: AuthContext, id: string) {
-    const u = await this.prisma.user.findUnique({ where: { id }, select: { id: true, displayName: true, email: true, status: true } });
+    const u = await this.prisma.user.findUnique({ where: { id }, select: { id: true, displayName: true, email: true, role: true, status: true } });
     if (!u) throw E.notFound();
     if (u.status !== 'PENDING_RESET') throw E.conflict('Tài khoản đã được kích hoạt.');
     await this.prisma.$transaction(async (tx) => {
-      await this.sendActivation(tx, u.id, u.displayName, u.email);
+      await this.sendActivation(tx, u.id, u.displayName, u.email, u.role);
       await this.audit.log({ actorId: a.user.id, actorRole: a.user.role, action: 'user.resend_activation', resourceType: 'user', resourceId: id }, tx);
     });
     return { sent: true };
@@ -187,7 +198,7 @@ export class UsersAdminService {
   /** Anonymise instead of deleting rows: posts/comments keep their structure (no cascade), personal data is removed. */
   async anonymize(a: AuthContext, id: string) {
     if (id === a.user.id) throw E.forbidden('Không thể xóa chính mình.', 'FORBIDDEN_ACTION');
-    return this.prisma.$transaction(async (tx) => {
+    const { avatar } = await this.prisma.$transaction(async (tx) => {
       const cur = await tx.user.findUnique({ where: { id }, select: { role: true, status: true, deletedAt: true } });
       if (!cur || cur.deletedAt) throw E.notFound();
       if (cur.role === 'ADMIN' && cur.status === 'ACTIVE') await this.assertNotLastAdmin(tx, id);
@@ -211,8 +222,11 @@ export class UsersAdminService {
       await tx.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.authToken.deleteMany({ where: { userId: id } });
       await tx.userProfile.deleteMany({ where: { userId: id } });
+      const avatar = await this.avatars.clearIn(tx, id);
       await this.audit.log({ actorId: a.user.id, actorRole: a.user.role, action: 'user.anonymize', resourceType: 'user', resourceId: id }, tx);
-      return { id };
+      return { avatar };
     });
+    if (avatar) await this.avatars.deleteFiles(avatar);
+    return { id };
   }
 }

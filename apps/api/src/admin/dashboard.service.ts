@@ -45,7 +45,9 @@ export class DashboardService {
     ]);
     const pendingUsers = await this.prisma.user.count({ where: { status: 'PENDING_RESET' } });
     const openReports = (await this.prisma.commentReport.groupBy({ by: ['commentId'], where: { status: { in: ['OPEN', 'IN_REVIEW'] } } })).length;
+    const mfaRequests = await this.prisma.mfaResetRequest.count({ where: { status: 'PENDING' } });
     return {
+      mfaRequests,
       openReports,
       users: group(users, 'role'),
       posts: group(posts, 'status'),
@@ -68,11 +70,5 @@ export class DashboardService {
       this.prisma.auditLog.findMany({ where, orderBy: { id: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
     ]);
     return { items: rows.map((r) => ({ ...r, id: String(r.id) })), page: q.page, pageSize: q.pageSize, total, totalPages: Math.max(1, Math.ceil(total / q.pageSize)) };
-  }
-
-  async migration() {
-    const runs = await this.prisma.migrationRun.findMany({ orderBy: { startedAt: 'desc' }, take: 10 });
-    const issues = await this.prisma.migrationIssue.groupBy({ by: ['runId', 'severity', 'code'], _count: { _all: true } });
-    return { runs, issues: issues.map((i) => ({ runId: i.runId, severity: i.severity, code: i.code, count: i._count._all })) };
   }
 }

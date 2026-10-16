@@ -91,19 +91,23 @@ describe('forgot password: reset with the 6-digit code', () => {
     const user = await t.makeUser({ role: 'MEMBER' });
     const session = await t.loginAs(user);
     const anon = await t.newClient();
-    expect((await anon.post('/auth/forgot-password', { email: user.email })).status).toBe(202);
+    expect((await anon.post('/auth/forgot-password', { email: user.email, portal: 'MEMBER' })).status).toBe(202);
     const { code } = await codeFor(user.email, 'Đặt lại mật khẩu');
     const newPassword = 'a-brand-new-password-1';
 
-    const wrongCode = await anon.post('/auth/reset-password-code', { email: user.email, code: wrong(code), password: newPassword });
-    const unknown = await anon.post('/auth/reset-password-code', { email: 'nobody@example.test', code, password: newPassword });
+    const wrongCode = await anon.post('/auth/reset-password-code', { email: user.email, portal: 'MEMBER', code: wrong(code), password: newPassword });
+    const unknown = await anon.post('/auth/reset-password-code', { email: 'nobody@example.test', portal: 'MEMBER', code, password: newPassword });
     expect(wrongCode.status).toBe(400);
     expect(unknown.status).toBe(400);
     expect(unknown.body.error.code).toBe(wrongCode.body.error.code);
     expect(unknown.body.error.message).toBe(wrongCode.body.error.message);
+    // the right code through another portal (a member's code typed into the collaborator form) is refused the same way
+    const otherPortal = await anon.post('/auth/reset-password-code', { email: user.email, portal: 'COLLABORATOR', code, password: newPassword });
+    expect(otherPortal.status).toBe(400);
+    expect(otherPortal.body.error.code).toBe(wrongCode.body.error.code);
 
-    expect((await anon.post('/auth/reset-password-code', { email: user.email, code, password: newPassword })).status).toBe(204);
-    expect((await anon.post('/auth/reset-password-code', { email: user.email, code, password: 'another-password-22' })).status).toBe(400); // single use
+    expect((await anon.post('/auth/reset-password-code', { email: user.email, portal: 'MEMBER', code, password: newPassword })).status).toBe(204);
+    expect((await anon.post('/auth/reset-password-code', { email: user.email, portal: 'MEMBER', code, password: 'another-password-22' })).status).toBe(400); // single use
     expect((await session.get('/auth/me')).body.user).toBeNull(); // old session revoked
     expect((await (await t.newClient()).post('/auth/login', { portal: 'MEMBER', identifier: user.email, password: user.password })).status).toBe(401);
     expect((await (await t.newClient()).post('/auth/login', { portal: 'MEMBER', identifier: user.email, password: newPassword })).status).toBe(200);
@@ -112,11 +116,11 @@ describe('forgot password: reset with the 6-digit code', () => {
   it('burns the reset code after 5 wrong guesses', async () => {
     const user = await t.makeUser({ role: 'MEMBER' });
     const anon = await t.newClient();
-    await anon.post('/auth/forgot-password', { email: user.email });
+    await anon.post('/auth/forgot-password', { email: user.email, portal: 'MEMBER' });
     const { code } = await codeFor(user.email, 'Đặt lại mật khẩu');
     for (let i = 0; i < 5; i++)
-      expect((await anon.post('/auth/reset-password-code', { email: user.email, code: wrong(code), password: 'a-brand-new-password-1' })).status).toBe(400);
-    expect((await anon.post('/auth/reset-password-code', { email: user.email, code, password: 'a-brand-new-password-1' })).status).toBe(400);
+      expect((await anon.post('/auth/reset-password-code', { email: user.email, portal: 'MEMBER', code: wrong(code), password: 'a-brand-new-password-1' })).status).toBe(400);
+    expect((await anon.post('/auth/reset-password-code', { email: user.email, portal: 'MEMBER', code, password: 'a-brand-new-password-1' })).status).toBe(400);
     expect((await (await t.newClient()).post('/auth/login', { portal: 'MEMBER', identifier: user.email, password: user.password })).status).toBe(200); // password untouched
   });
 
@@ -124,16 +128,18 @@ describe('forgot password: reset with the 6-digit code', () => {
     const c = await t.newClient();
     const email = await register(c, 'crosscheck');
     const { code } = await codeFor(email, 'Mã xác minh');
-    const r = await (await t.newClient()).post('/auth/reset-password-code', { email, code, password: 'a-brand-new-password-1' });
+    const r = await (await t.newClient()).post('/auth/reset-password-code', { email, portal: 'MEMBER', code, password: 'a-brand-new-password-1' });
     expect(r.status).toBe(400);
     expect((await (await t.newClient()).post('/auth/login', { portal: 'MEMBER', identifier: email, password: 'long-enough-pass' })).status).toBe(200);
   });
 
   it('rejects weak passwords and malformed bodies before touching the code', async () => {
     const anon = await t.newClient();
-    expect((await anon.post('/auth/reset-password-code', { email: 'a@example.test', code: '123456', password: 'short' })).status).toBe(400);
-    expect((await anon.post('/auth/reset-password-code', { email: 'a@example.test', code: '12', password: 'long-enough-pass' })).status).toBe(400);
-    expect((await anon.post('/auth/reset-password-code', { email: 'a@example.test', code: '123456', password: 'long-enough-pass', role: 'ADMIN' })).status).toBe(400);
+    expect((await anon.post('/auth/reset-password-code', { email: 'a@example.test', portal: 'MEMBER', code: '123456', password: 'short' })).status).toBe(400);
+    expect((await anon.post('/auth/reset-password-code', { email: 'a@example.test', portal: 'MEMBER', code: '12', password: 'long-enough-pass' })).status).toBe(400);
+    expect((await anon.post('/auth/reset-password-code', { email: 'a@example.test', portal: 'MEMBER', code: '123456', password: 'long-enough-pass', role: 'ADMIN' })).status).toBe(
+      400,
+    );
   });
 });
 
@@ -146,7 +152,7 @@ describe('admin invites a user by e-mail', () => {
     expect(text).toContain('Người Được Mời');
 
     const password = 'invited-user-pass-1';
-    expect((await (await t.newClient()).post('/auth/reset-password-code', { email: 'moi.nguoi@example.test', code, password })).status).toBe(204);
+    expect((await (await t.newClient()).post('/auth/reset-password-code', { email: 'moi.nguoi@example.test', portal: 'COLLABORATOR', code, password })).status).toBe(204);
     const login = await (await t.newClient()).post('/auth/login', { portal: 'COLLABORATOR', identifier: 'moi.nguoi', password });
     expect(login.status).toBe(200);
     expect(login.body.user.role).toBe('COLLABORATOR');

@@ -111,6 +111,7 @@ export function toAuthUser(u: {
   restrictedAt?: Date | null;
   restrictedUntil?: Date | null;
   restrictionReason?: string | null;
+  avatarAssetId?: string | null;
 }): AuthUser {
   return {
     id: u.id,
@@ -126,5 +127,6 @@ export function toAuthUser(u: {
     restrictedAt: u.restrictedAt ?? null,
     restrictedUntil: u.restrictedUntil ?? null,
     restrictionReason: u.restrictionReason ?? null,
+    avatarAssetId: u.avatarAssetId ?? null,
   };
 }

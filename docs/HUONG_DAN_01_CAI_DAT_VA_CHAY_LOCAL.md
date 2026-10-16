@@ -155,7 +155,7 @@ chạy lại `pnpm build` (hoặc `pnpm db:generate` khi đổi schema) rồi kh
 | Trang mở được nhưng không có bài viết | Bình thường khi DB trống: đăng bài ở `/admin` hoặc `pnpm seed:dev` |
 | Email không thấy đâu | Worker chưa chạy (Terminal 2) → bật `dev:worker`; xem Mailpit ở http://localhost:58025 |
 | `/admin` báo 403 sau khi đăng nhập | Admin chưa bật MFA — xem "Đăng nhập admin lần đầu" |
-| Cảnh báo "hydration" trong console trình duyệt | Thường do tiện ích trình duyệt (ví dụ Bitdefender) chèn thuộc tính vào trang; thử cửa sổ ẩn danh |
+| Cảnh báo "hydration" trong console trình duyệt | Thuộc tính lạ như `bis_skin_checked`, `bis_register` là do tiện ích trình duyệt (Bitdefender, Grammarly…) chèn vào. Chế độ dev đã tự dọn các thuộc tính này trước khi React chạy; nếu vẫn thấy, tải lại trang (Ctrl+Shift+R) hoặc thử cửa sổ ẩn danh. Cảnh báo về thuộc tính khác mới là lỗi thật của code |
 | Quên mật khẩu admin | `BOOTSTRAP_ADMIN_EMAIL=... pnpm bootstrap:admin --force` tạo admin mới, hoặc dùng "Quên mật khẩu" |
 
 ---

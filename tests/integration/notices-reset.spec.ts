@@ -168,7 +168,7 @@ describe('administrator resets a password to the default', () => {
   });
 
   it('is audited, the owner is told (in-app + e-mail without the password) and old reset codes are revoked', async () => {
-    await mc.post('/auth/forgot-password', { email: member.email }); // creates a reset token
+    await mc.post('/auth/forgot-password', { email: member.email, portal: 'MEMBER' }); // creates a reset token
     await ac.post(`/admin/users/${member.id}/reset-password`);
     const a = await t.admin.query(`SELECT "actorId", metadata FROM audit_logs WHERE action='user.reset_password' AND "resourceId"=$1`, [member.id]);
     expect(a.rows).toHaveLength(1);

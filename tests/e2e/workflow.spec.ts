@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import { apiClient, uiLogin, users, watchErrors } from './support/helpers';
 
 const editor = (page: Page) => page.locator('[role=textbox][aria-label="Nội dung bài viết"]');
@@ -10,6 +10,8 @@ const jpeg = () =>
 
 async function logout(page: Page) {
   await page.getByRole('button', { name: 'Đăng xuất' }).first().click();
+  // Signing out redirects to a sign-in portal a moment later; wait for it so the next navigation cannot race with that redirect.
+  await page.waitForURL(/\/dang-nhap-/, { timeout: 15_000 });
 }
 
 test.describe.serial('acceptance: member → collaborator → admin → public (all through the UI)', () => {

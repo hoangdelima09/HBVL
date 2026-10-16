@@ -115,3 +115,29 @@ Mật khẩu mặc định `123456789` ngắn hơn chính sách (10 ký tự) v�
 - Đặt cờ `mustChangePassword`: mọi endpoint cần đăng nhập trả `403 PASSWORD_CHANGE_REQUIRED`, trừ đổi mật khẩu, đăng xuất và bước MFA. Mật khẩu mới không được trùng chính sách yếu (≥ 10 ký tự).
 - Thu hồi mọi phiên, xóa mã/liên kết đặt lại còn hiệu lực, ghi `audit_logs` (`user.reset_password`). Email báo cho chủ tài khoản **không chứa** mật khẩu.
 - Rủi ro còn lại: từ lúc reset tới lúc chủ tài khoản đăng nhập, ai biết tên đăng nhập đều có thể vào bằng mật khẩu mặc định. Hãy báo người dùng đổi ngay (và dùng kênh riêng). Tài khoản có MFA vẫn cần mã MFA.
+
+## Bản đồ Google ở trang Liên hệ
+
+- Bản đồ nhúng là `https://www.google.com/maps?q=<địa chỉ>&output=embed` (không cần API key) và liên kết bấm là Maps URL chính thức; cả hai **sinh từ địa chỉ tiếng Việt đang hiển thị**, nên ghim và chữ không thể lệch nhau.
+- CSP `frame-src` chỉ thêm đúng `https://www.google.com`. Khung nhúng tải lười (`loading="lazy"`), `referrerPolicy="no-referrer"`; liên kết mở tab mới với `rel="noopener noreferrer"`.
+- Cài đặt `mapUrl` (admin) chỉ được dùng khi là liên kết Google Maps `https` (google.com/maps, maps.google.com, maps.app.goo.gl); giá trị khác bị bỏ qua, nên không thể biến bản đồ thành liên kết tới trang lạ.
+- Lưu ý riêng tư: khi mở trang Liên hệ, trình duyệt của khách tải nội dung từ Google (Google thấy IP của họ) — đây là đánh đổi của việc dùng Google Maps thay cho OpenStreetMap.
+
+## Mất thiết bị xác thực 2 lớp
+
+- **Bước 2 bắt buộc cho mọi vai trò** (trước đây chỉ khu `/admin`). Phiên mới qua mật khẩu chỉ dùng được: nhập mã, đăng xuất, khôi phục (`@AllowBeforeMfa`).
+- **Mọi đường khôi phục đều bắt đầu từ mật khẩu đúng** rồi chứng minh hộp thư: lộ riêng mật khẩu hoặc riêng email đều không đủ.
+- CTV/thành viên: mã 6 số (HMAC, gắn mục đích `MFA_RECOVERY`, 5 lần sai thì hủy) → yêu cầu tới admin; **admin quyết định** và được nhắc xác minh qua kênh khác. Email gửi admin không chứa bí mật.
+- Admin: liên kết một lần 30 phút (`MFA_RESET`, không có mã); trang `/go-xac-thuc` cần **bấm nút** (trình quét thư mở trước liên kết không làm mất liên kết). Gỡ xong: đăng xuất mọi phiên, `/admin` khóa tới khi bật lại MFA, email báo đã gỡ.
+- **Đánh đổi:** với admin, mật khẩu + email = đủ để gỡ MFA. Hãy bảo vệ hộp thư quản trị (`duchoanganhhung@gmail.com`) bằng xác thực 2 lớp của Google.
+- Quên mật khẩu admin: chỉ liên kết, mã 6 số không được tạo cũng không được chấp nhận cho tài khoản admin.
+
+## Quên mật khẩu theo cổng
+
+- Mỗi cổng (`/quen-mat-khau?cong=quan-tri|cong-tac-vien|thanh-vien`) chỉ gửi thư/mã cho tài khoản **đúng vai trò**; mã 6 số cũng chỉ dùng được qua đúng cổng (`portal` bắt buộc ở `forgot-password` và `reset-password-code`).
+- **Cổng quản trị luôn trả lời giống nhau** (202, đệm tối thiểu 400 ms): không thể dò ra email nào là admin, kể cả bằng thời gian phản hồi.
+- **Cổng CTV/thành viên báo "Email không đúng"** (yêu cầu nghiệp vụ). Đánh đổi: lộ được email nào thuộc CTV/thành viên; giảm thiểu bằng:
+  - CAPTCHA Cloudflare Turnstile sau **2 lần sai/IP/giờ**, hoặc cho **mọi người** khi toàn site có **≥ 50 lần sai/giờ** (chống dò từ nhiều IP); kiểm token ở server, lỗi mạng ⇒ coi như chưa qua (fail closed);
+  - giới hạn 10 yêu cầu/IP/giờ và 3 thư/email/giờ (sẵn có);
+  - mỗi lần sai ghi `audit_logs` `auth.password_reset_wrong_email` (DENIED); IP sai **10 lần/giờ** ⇒ `auth.password_reset_enumeration_suspected` + log cảnh báo.
+- Mọi bước ghi `audit_logs`: `auth.mfa_recovery_code`, `auth.mfa_reset_request`, `user.mfa_reset_approve|reject`, `auth.mfa_reset_link`, `auth.mfa_reset_by_link`.

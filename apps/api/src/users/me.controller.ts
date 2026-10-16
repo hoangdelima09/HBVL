@@ -1,8 +1,10 @@
-import { Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { changePasswordSchema, mfaVerifySchema, updateProfileSchema } from '@hbvl/contracts';
+import { Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { changePasswordSchema, LIMITS, mfaVerifySchema, updateProfileSchema } from '@hbvl/contracts';
 import { PrismaClient } from '@hbvl/database';
 import type { Request, Response } from 'express';
+import { memoryStorage } from 'multer';
 import { z } from 'zod';
 import { AllowWhilePasswordChangePending, Auth, CurrentAuth } from '../auth/auth.decorators';
 import { AuthService } from '../auth/auth.service';
@@ -18,6 +20,7 @@ import { RateLimit } from '../common/rate-limit';
 import { body, ZodBody } from '../common/zod';
 import { ENV, type Env } from '../config/env';
 import { AuditService } from '../audit/audit.service';
+import { AvatarService } from '../media/avatar.service';
 
 @ApiTags('me')
 @Controller('me')
@@ -31,6 +34,7 @@ export class MeController {
     private readonly passwords: PasswordService,
     private readonly csrf: CsrfService,
     private readonly audit: AuditService,
+    private readonly avatars: AvatarService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -50,6 +54,26 @@ export class MeController {
       this.prisma.userProfile.upsert({ where: { userId: ctx.user.id }, update: bio === undefined ? {} : { bio }, create: { userId: ctx.user.id, bio } }),
     ]);
     return { ok: true };
+  }
+
+  /**
+   * Upload or replace the profile picture (JPEG/PNG/WebP up to 5 MB, cropped to a square). It is public, so like a comment it needs a
+   * verified e-mail and an account that is not restricted.
+   */
+  @Post('avatar')
+  @HttpCode(200)
+  @Auth({ verified: true })
+  @RateLimit({ name: 'avatar', limit: 10, windowSeconds: 3600, scope: 'actor' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: LIMITS.imageMaxBytes + 1024, files: 1, fields: 2, parts: 3 } }))
+  setAvatar(@UploadedFile() file: Express.Multer.File | undefined, @CurrentAuth() ctx: AuthContext) {
+    return this.avatars.set(ctx.user, { buffer: file?.buffer ?? Buffer.alloc(0), originalname: file?.originalname });
+  }
+
+  @Delete('avatar')
+  @HttpCode(204)
+  async removeAvatar(@CurrentAuth() ctx: AuthContext) {
+    await this.avatars.removeOwn(ctx.user);
   }
 
   @Post('password')

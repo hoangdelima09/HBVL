@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Toaster } from 'sonner';
 import '../../globals.css';
+import { ExtensionAttributeGuard } from '@/components/extension-attribute-guard';
 import { SiteFooter } from '@/components/site/footer';
 import { ChatWidget } from '@/components/site/chat-widget';
 import { SiteHeader } from '@/components/site/header';
@@ -36,8 +37,9 @@ export default async function SiteLayout({ children, params }: { children: React
   const [{ items: tree }, settings] = await Promise.all([apiGet<{ items: CategoryNode[] }>(`/categories?locale=${locale}`), apiGet<Settings>('/settings/public')]);
   const b = settings.brand;
   return (
-    <html lang={locale}>
-      <body>
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <ExtensionAttributeGuard />
         <SessionProvider>
           <a href="#main-content" className="sr-only z-[100] rounded-md bg-white px-4 py-2 font-semibold text-brand-700 focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
             {t('Bỏ qua, tới nội dung chính', 'Skip to main content')}

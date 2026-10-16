@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { normalizeUsername } from '@hbvl/contracts';
 import { Prisma, PrismaClient, type Role } from '@hbvl/database';
 import { AuditService } from '../audit/audit.service';
+import { avatarUrl } from '../media/media-url';
+import { AvatarService } from '../media/avatar.service';
 import { isRestricted, type AuthContext } from '../auth/auth.types';
 import { E } from '../common/errors';
 
@@ -19,6 +21,7 @@ const memberSelect = {
   restrictedAt: true,
   restrictedUntil: true,
   restrictionReason: true,
+  avatarAssetId: true,
   _count: { select: { comments: true, posts: true } },
 } satisfies Prisma.UserSelect;
 
@@ -31,12 +34,14 @@ export class UserModerationService {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly audit: AuditService,
+    private readonly avatars: AvatarService,
   ) {}
 
   private view(u: Prisma.UserGetPayload<{ select: typeof memberSelect }>) {
-    const { _count, restrictedAt, restrictedUntil, restrictionReason, ...rest } = u;
+    const { _count, restrictedAt, restrictedUntil, restrictionReason, avatarAssetId, ...rest } = u;
     return {
       ...rest,
+      avatarUrl: avatarUrl(avatarAssetId, 'thumb'),
       commentCount: _count.comments,
       postCount: _count.posts,
       restricted: isRestricted({ restrictedAt, restrictedUntil }),
@@ -118,6 +123,16 @@ export class UserModerationService {
 
   block(a: AuthContext, id: string, input: { reason: string }) {
     return this.prisma.$transaction((tx) => this.blockIn(tx, a, id, input, 'manual'));
+  }
+
+  /** Takes an inappropriate profile picture down (same scope as restrict/block); the owner gets the reason as a notification. */
+  async removeAvatar(a: AuthContext, id: string, reason: string) {
+    const retired = await this.prisma.$transaction(async (tx) => {
+      await this.target(tx, a, id);
+      return this.avatars.removeByStaffIn(tx, a.user, id, reason);
+    });
+    await this.avatars.deleteFiles(retired);
+    return { id, avatarUrl: null };
   }
 
   async unrestrict(a: AuthContext, id: string) {

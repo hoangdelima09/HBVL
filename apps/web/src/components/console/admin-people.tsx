@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { adminCreateUserSchema } from '@hbvl/contracts';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog, Modal } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Alert, Badge } from '@/components/ui/misc';
 import { ApiError, del, patch, post } from '@/lib/client';
+import { useSession } from '@/lib/session';
 import { DataTable, fmt, PageHeader, Pager, QueryBoundary, useQuery } from './kit';
-import { RestrictDialog } from './moderation';
+import { RemoveAvatarDialog, RestrictDialog } from './moderation';
 
 interface Paged<T> {
   items: T[];
@@ -38,6 +40,7 @@ interface UserRow {
   restrictedAt: string | null;
   restrictedUntil: string | null;
   restrictionReason: string | null;
+  avatarUrl: string | null;
 }
 const isRestricted = (r: { restrictedAt: string | null; restrictedUntil: string | null }) =>
   !!r.restrictedAt && (!r.restrictedUntil || new Date(r.restrictedUntil).getTime() > Date.now());
@@ -51,6 +54,8 @@ export function UsersAdmin() {
   const [confirm, setConfirm] = useState<{ kind: 'delete' | 'suspend' | 'activate' | 'reset'; user: UserRow } | null>(null);
   const [busy, setBusy] = useState(false);
   const [restrictUser, setRestrictUser] = useState<UserRow | null>(null);
+  const [avatarOf, setAvatarOf] = useState<UserRow | null>(null);
+  const { user: me } = useSession();
   const query = useQuery<Paged<UserRow>>(
     `/admin/users?page=${page}&pageSize=20${q ? `&q=${encodeURIComponent(q)}` : ''}${role ? `&role=${role}` : ''}${status ? `&status=${status}` : ''}`,
   );
@@ -140,12 +145,15 @@ export function UsersAdmin() {
                   key: 'u',
                   header: 'Tài khoản',
                   cell: (r) => (
-                    <>
-                      <strong>{r.displayName}</strong>
-                      <p className="text-xs text-muted">
-                        {r.username} · {r.email}
-                      </p>
-                    </>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar src={r.avatarUrl} name={r.displayName} size={32} />
+                      <div>
+                        <strong>{r.displayName}</strong>
+                        <p className="text-xs text-muted">
+                          {r.username} · {r.email}
+                        </p>
+                      </div>
+                    </div>
                   ),
                 },
                 {
@@ -218,6 +226,11 @@ export function UsersAdmin() {
                             Đặt lại mật khẩu
                           </Button>
                         )}
+                        {r.avatarUrl && r.id !== me?.id && (
+                          <Button size="sm" variant="outline" onClick={() => setAvatarOf(r)}>
+                            Gỡ ảnh
+                          </Button>
+                        )}
                         <Button size="sm" variant="ghost" onClick={() => setConfirm({ kind: 'delete', user: r })}>
                           Xóa (ẩn danh)
                         </Button>
@@ -230,6 +243,13 @@ export function UsersAdmin() {
           </>
         )}
       </QueryBoundary>
+      <RemoveAvatarDialog
+        user={avatarOf}
+        onClose={(changed) => {
+          setAvatarOf(null);
+          if (changed) void query.reload();
+        }}
+      />
       <RestrictDialog
         user={restrictUser}
         onClose={(changed) => {

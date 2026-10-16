@@ -5,6 +5,7 @@ import { LogOut, MessageSquare, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/session';
 import { localePath, tr, type Locale } from '@/lib/i18n';
+import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/misc';
 
 /** Personal part of the header — rendered only in the browser from /auth/me so the page HTML stays user-agnostic. */
@@ -26,7 +27,7 @@ export function AccountNav({ locale }: { locale: Locale }) {
   return (
     <div className="flex items-center gap-1" data-testid="account-nav">
       <Link className={link} href={home}>
-        <UserRound className="h-3.5 w-3.5" aria-hidden />
+        <Avatar src={user.avatarUrl} name={user.displayName} size={20} className="ring-white/40" />
         <span className="max-w-32 truncate">{user.displayName}</span>
       </Link>
       <Link className={link} href={localePath(locale, '/gui-y-kien')}>

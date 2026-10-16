@@ -153,11 +153,7 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
       </p>
 
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div
-          role="group"
-          aria-label={t('Chọn hệ thống đơn vị hành chính cấp tỉnh', 'Select provincial-level administrative system')}
-          className="inline-flex rounded-full border border-line bg-paper p-1"
-        >
+        <div role="group" aria-label={t('Chế độ bản đồ', 'Map mode')} className="inline-flex rounded-full bg-paper-2 p-1 shadow-subtle ring-1 ring-line">
           {(['34', '63'] as const).map((m) => (
             <button
               key={m}
@@ -165,7 +161,10 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
               aria-pressed={mode === m}
               onClick={() => switchMode(m)}
               data-map={m}
-              className={cn('rounded-full px-4 py-2 text-sm font-semibold', mode === m ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-white')}
+              className={cn(
+                'rounded-full px-4.5 py-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer',
+                mode === m ? 'bg-brand-600 text-white shadow-card' : 'text-ink-2 hover:bg-white hover:text-ink',
+              )}
             >
               {m === '34' ? t('34 tỉnh/thành hiện hành', '34 current provinces/cities') : t('63 tỉnh/thành trước sắp xếp', '63 before reorganisation')}
             </button>
@@ -175,7 +174,7 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
           <label htmlFor="map-search" className="sr-only">
             {t('Tìm tỉnh, thành hoặc thành viên', 'Search provinces, cities or members')}
           </label>
-          <Search className="pointer-events-none absolute left-3.5 top-3 h-5 w-5 text-slate-500" aria-hidden />
+          <Search className="pointer-events-none absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-400" aria-hidden />
           <input
             id="map-search"
             type="search"
@@ -190,14 +189,14 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
             }}
             placeholder={t('Tìm tỉnh/thành hoặc thành viên', 'Search province/city or member')}
             aria-controls={results ? 'map-search-results' : undefined}
-            className="h-11 w-full rounded-full border border-slate-300 bg-white pl-11 pr-4 text-sm placeholder:text-slate-500"
+            className="h-11 w-full rounded-full border border-slate-300 bg-white pl-10 pr-4 text-sm placeholder:text-slate-500 shadow-subtle transition-all focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20"
           />
           {results && (
             <div
               id="map-search-results"
               role="listbox"
               aria-label={t('Kết quả tìm kiếm', 'Search results')}
-              className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-lg border border-line bg-white p-1 shadow-lift"
+              className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-floating"
             >
               {results.provinces.length === 0 && results.members.length === 0 && <p className="px-3 py-2 text-sm text-muted">{t('Không tìm thấy kết quả', 'No results')}</p>}
               {results.provinces.map((p) => (
@@ -206,15 +205,15 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
                   role="option"
                   aria-selected={false}
                   type="button"
-                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-brand-50"
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50 transition-colors cursor-pointer"
                   onClick={() => {
                     choose(p.slug);
                     setQuery('');
                     setResults(null);
                   }}
                 >
-                  <strong>{name(p)}</strong>
-                  <span className="text-muted">
+                  <strong className="text-ink">{name(p)}</strong>
+                  <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
                     {p.count} {t('thành viên', 'members')}
                   </span>
                 </button>
@@ -225,15 +224,15 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
                   role="option"
                   aria-selected={false}
                   type="button"
-                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-brand-50"
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50 transition-colors cursor-pointer"
                   onClick={() => {
                     choose(m.provinceSlug);
                     setQuery('');
                     setResults(null);
                   }}
                 >
-                  <strong>{m.name}</strong>
-                  <span className="text-muted">{t(m.provinceNameVi, m.provinceNameEn)}</span>
+                  <strong className="text-ink">{m.name}</strong>
+                  <span className="text-xs text-muted">{t(m.provinceNameVi, m.provinceNameEn)}</span>
                 </button>
               ))}
             </div>
@@ -252,8 +251,8 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
           </Alert>
         </div>
       ) : (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-          <div ref={atlas} className="relative rounded-xl bg-slate-50 p-3">
+        <div className="mt-8 grid gap-8 lg:grid-cols-[1.15fr_1fr]">
+          <div ref={atlas} className="relative rounded-2xl border border-line bg-gradient-to-b from-slate-50 via-white to-slate-50/60 p-4 shadow-card">
             {!drawn || !summary ? (
               <Skeleton className="mx-auto aspect-[620/850] w-full max-w-md" />
             ) : (
@@ -327,28 +326,28 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
                 {tip.text}
               </div>
             )}
-            <ul aria-label={t('Chú giải bản đồ', 'Map legend')} className="mt-3 flex flex-wrap justify-center gap-4 text-xs font-medium text-ink-2">
-              <li className="flex items-center gap-1.5">
-                <i className="h-3 w-3 rounded-sm bg-slate-200 ring-1 ring-slate-400" />
+            <ul aria-label={t('Chú giải bản đồ', 'Map legend')} className="mt-4 flex flex-wrap justify-center gap-3 text-xs font-semibold text-ink-2">
+              <li className="flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 shadow-subtle">
+                <i className="h-3 w-3 rounded-full bg-slate-200 ring-1 ring-slate-400/50" />
                 {t('Chưa có thành viên', 'No members')}
               </li>
-              <li className="flex items-center gap-1.5">
-                <i className="h-3 w-3 rounded-sm bg-blue-200 ring-1 ring-slate-400" />
+              <li className="flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 shadow-subtle">
+                <i className="h-3 w-3 rounded-full bg-blue-200 ring-1 ring-blue-400/50" />
                 {t('Có thành viên', 'Has members')}
               </li>
-              <li className="flex items-center gap-1.5">
-                <i className="h-3 w-3 rounded-sm bg-brand-600" />
+              <li className="flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 shadow-subtle">
+                <i className="h-3 w-3 rounded-full bg-brand-600" />
                 {t('Đang chọn', 'Selected')}
               </li>
             </ul>
           </div>
 
-          <aside aria-live="polite" aria-labelledby="map-detail-title" className="rounded-xl border-t-4 border-leaf-600 bg-paper p-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-leaf-700">{t('Tỉnh/thành đang chọn', 'Selected province/city')}</p>
-            <h3 id="map-detail-title" ref={panel} tabIndex={-1} className="mt-1 font-serif text-3xl font-semibold">
+          <aside aria-live="polite" aria-labelledby="map-detail-title" className="rounded-2xl border-t-4 border-t-leaf-600 border-x border-b border-line bg-white p-7 shadow-card">
+            <p className="text-[0.72rem] font-bold uppercase tracking-wider text-leaf-700">{t('Tỉnh/thành đang chọn', 'Selected province/city')}</p>
+            <h3 id="map-detail-title" ref={panel} tabIndex={-1} className="mt-1.5 font-serif text-3xl font-bold tracking-tight text-ink">
               {current ? name(current) : t('Chọn một tỉnh/thành', 'Choose a province/city')}
             </h3>
-            <p className="mt-1 text-lg font-semibold text-brand-700" data-testid="map-count">
+            <p className="mt-2 text-xl font-bold text-brand-700" data-testid="map-count">
               {current
                 ? `${current.count} ${t('thành viên', 'members')}`
                 : summary
@@ -356,21 +355,26 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
                   : '—'}
             </p>
             {current?.constituents && current.constituents.length > 1 && (
-              <div className="mt-5" data-testid="map-constituents">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted">{t('Hình thành từ', 'Formed from')}</h4>
-                <ul className="mt-2 space-y-1 text-sm">
+              <div className="mt-6 border-t border-line/80 pt-4" data-testid="map-constituents">
+                <h4 className="text-[0.72rem] font-bold uppercase tracking-wider text-muted">{t('Hình thành từ', 'Formed from')}</h4>
+                <ul className="mt-2 space-y-1.5 text-sm">
                   {current.constituents.map((c) => (
-                    <li key={c.slug}>
-                      {name(c)} {t('cũ', '(former)')} · {c.count} {t('thành viên', 'members')}
+                    <li key={c.slug} className="flex items-center justify-between text-ink-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-line/60">
+                      <span>
+                        {name(c)} {t('cũ', '(former)')}
+                      </span>
+                      <span className="font-semibold text-brand-700 text-xs">
+                        {c.count} {t('thành viên', 'members')}
+                      </span>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-            <div className="mt-5">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted">{t('Thành viên HBVL', 'HBVL members')}</h4>
+            <div className="mt-6 border-t border-line/80 pt-4">
+              <h4 className="text-[0.72rem] font-bold uppercase tracking-wider text-muted">{t('Thành viên HBVL', 'HBVL members')}</h4>
               {!current ? (
-                <p className="mt-2 italic text-muted">
+                <p className="mt-2 text-sm italic text-muted">
                   {t('Nhấp hoặc dùng bàn phím để chọn một tỉnh/thành trên bản đồ.', 'Click or use the keyboard to choose a province/city on the map.')}
                 </p>
               ) : members === null ? (
@@ -380,7 +384,7 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
                   {t('Không tải được danh sách.', 'Could not load the list.')}
                 </Alert>
               ) : members.items.length === 0 ? (
-                <p className="mt-2 italic text-muted" data-testid="map-empty">
+                <p className="mt-2 text-sm italic text-muted" data-testid="map-empty">
                   {t(
                     `Hiện chưa có thành viên HBVL tại ${current.nameVi}.`,
                     `No HBVL members in ${current.nameEn} yet.`,
@@ -388,7 +392,7 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
                   )}
                 </p>
               ) : (
-                <ol className="mt-2 list-decimal space-y-1 pl-5" data-testid="map-members">
+                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-ink-2" data-testid="map-members">
                   {members.items.map((m, i) => (
                     <li key={`${m.name}-${i}`}>{m.name}</li>
                   ))}
@@ -396,9 +400,17 @@ export function MapExplorer({ locale, initialVersion }: { locale: Locale; initia
               )}
             </div>
             {current && (
-              <Link href={localePath(locale, `/tinh/${current.slug}`)} className="mt-6 inline-block text-sm font-semibold text-brand-700 hover:underline">
-                {t('Xem trang tỉnh', 'Open province page')} →
-              </Link>
+              <div className="mt-8 pt-4 border-t border-line/80">
+                <Link
+                  href={localePath(locale, `/tinh/${current.slug}`)}
+                  className="group inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-brand-700 hover:bg-brand-100 hover:text-brand-900 transition-colors"
+                >
+                  {t('Xem trang tỉnh', 'Open province page')}
+                  <span className="transition-transform group-hover:translate-x-1" aria-hidden>
+                    →
+                  </span>
+                </Link>
+              </div>
             )}
           </aside>
         </div>

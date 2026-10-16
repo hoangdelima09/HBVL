@@ -57,7 +57,17 @@ export interface PostDetail extends PostCard {
 }
 export interface Settings {
   brand: Record<string, string>;
-  contact: { addressVi: string; addressEn: string; phone: string; phoneNoteVi?: string; phoneNoteEn?: string; email: string; hoursVi: string[]; hoursEn: string[]; mapUrl: string };
+  contact: {
+    addressVi: string;
+    addressEn: string;
+    phone: string;
+    phoneNoteVi?: string;
+    phoneNoteEn?: string;
+    email: string;
+    hoursVi: string[];
+    hoursEn: string[];
+    mapUrl?: string | null;
+  };
   home: {
     hero: {
       badgeVi: string;

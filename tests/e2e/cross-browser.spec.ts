@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { uiLogin } from './support/helpers';
 
 // Smoke on Firefox (the primary suite runs on Chromium).

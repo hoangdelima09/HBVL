@@ -15,6 +15,8 @@ export interface SessionUser {
   locale: Locale | 'ja';
   /** An administrator reset the password: only "change password" works until the person picks a new one. */
   mustChangePassword: boolean;
+  /** Profile picture (256 px square) or null → initials. */
+  avatarUrl: string | null;
   /** Set while the account is restricted (cannot comment/like/submit); `until` null = until lifted. */
   restriction: { until: string | null; reason: string | null } | null;
 }

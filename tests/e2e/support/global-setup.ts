@@ -91,6 +91,8 @@ export default async function globalSetup() {
   await mk('memberA', 'MEMBER');
   await mk('memberB', 'MEMBER');
   await mk('memberC', 'MEMBER'); // the account restricted/blocked by the moderation tests
+  await mk('mfaMember', 'MEMBER', { mfa: true }); // loses their authenticator in mfa-recovery.spec
+  await mk('admin2', 'ADMIN', { mfa: true }); // a second administrator who recovers by e-mailed link
   await mk('unverified', 'MEMBER', { verified: false });
   await mk('resetUser', 'MEMBER'); // its password is changed by the reset-flow test
   // Published fixtures for the public-site tests (the workflow tests create their own through the UI).

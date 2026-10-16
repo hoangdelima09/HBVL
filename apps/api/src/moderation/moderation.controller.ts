@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { blockUserSchema, reportCommentSchema, resolveReportSchema, restrictUserSchema, LIMITS } from '@hbvl/contracts';
+import { blockUserSchema, removeAvatarSchema, reportCommentSchema, resolveReportSchema, restrictUserSchema, LIMITS } from '@hbvl/contracts';
 import { z } from 'zod';
 import { Auth, CurrentAuth } from '../auth/auth.decorators';
 import type { AuthContext } from '../auth/auth.types';
@@ -96,6 +96,13 @@ export class StaffModerationController {
   @ZodBody(blockUserSchema)
   block(@Param('id', new ParseUUIDPipe()) id: string, @body(blockUserSchema) dto: z.infer<typeof blockUserSchema>, @CurrentAuth() a: AuthContext) {
     return this.users.block(a, id, dto);
+  }
+
+  @Post('users/:id/remove-avatar')
+  @HttpCode(200)
+  @ZodBody(removeAvatarSchema)
+  removeAvatar(@Param('id', new ParseUUIDPipe()) id: string, @body(removeAvatarSchema) dto: z.infer<typeof removeAvatarSchema>, @CurrentAuth() a: AuthContext) {
+    return this.users.removeAvatar(a, id, dto.reason);
   }
 
   @Post('users/:id/unblock')

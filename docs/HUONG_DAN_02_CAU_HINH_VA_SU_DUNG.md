@@ -115,6 +115,10 @@ Hành vi:
 
 ---
 
+**Bot lấy dữ liệu từ đâu?** Mỗi câu hỏi, bot đọc trực tiếp từ cơ sở dữ liệu: phần giới thiệu và liên hệ ở `/admin/cai-dat`, danh sách chuyên mục, số học viên theo tỉnh trên bản đồ, khoảng 30 bài/sự kiện/chương trình mới nhất và các bài khớp nhất với câu hỏi. Đăng bài, sửa cài đặt hay nhập học viên xong là câu hỏi kế tiếp đã biết — không cần khởi động lại. Bài nháp, bài chờ duyệt và tên học viên không bao giờ được đưa cho bot.
+
+Nếu bot trả lời "chưa tìm thấy thông tin" cho bài đã đăng từ trước bản cập nhật này, chạy một lần `pnpm reindex:search` (đánh chỉ mục lại tiêu đề bài).
+
 ## 5. Bản đồ Vươn Lên: nhập danh sách học viên từ Excel
 
 Bản đồ ở `/category/dong-du-ky/ban-do-vuon-len` đếm học viên theo tỉnh/thành. Dữ liệu lấy từ bảng học viên.
@@ -163,7 +167,17 @@ Trạng thái từng dòng khi xem trước:
 
 `/admin/hoc-vien` (đăng nhập admin có MFA): tải tệp **CSV UTF-8** (cột `name`, `province`) hoặc **JSON**, xem trước, rồi xác nhận.
 Giao diện này **chưa đọc `.xlsx`** — với Excel hãy dùng lệnh ở 5.2 hoặc xuất sang CSV UTF-8 trước.
-Ở đây cũng ẩn/lưu trữ từng học viên và xác minh danh bạ tỉnh (`/admin/danh-ba`).
+Đánh dấu **"Thay toàn bộ danh sách"** trước khi chọn tệp để tệp thay hẳn danh sách hiện có (giống `--replace`; có hộp xác nhận).
+
+Quản lý danh sách (admin toàn quyền):
+
+- **Lọc** theo tên, tỉnh (63 đơn vị), trạng thái (hoạt động/lưu trữ), hiển thị (hiện/ẩn).
+- **Sửa** từng học viên: họ tên, quê quán, trạng thái, hiện/ẩn. Nếu đã có người cùng tên, hệ thống hỏi xác nhận "là người khác".
+- **Xóa** vĩnh viễn (muốn giữ hồ sơ thì dùng "Lưu trữ").
+- **Chọn nhiều** (hoặc "Chọn cả trang") để ẩn/hiện, lưu trữ/khôi phục, **chuyển sang tỉnh khác** hoặc xóa cùng lúc.
+- **Xuất CSV** danh sách đang lọc (mở bằng Excel; nhập lại được ngay) — nên xuất để sao lưu trước khi thay toàn bộ.
+
+Mọi thay đổi hiện ngay trên bản đồ và được ghi vào nhật ký (`/admin/nhat-ky`). Danh bạ tỉnh xác minh ở `/admin/danh-ba`.
 
 ---
 
@@ -201,6 +215,13 @@ Lưu ý: bảng `audit_logs` (nhật ký) và `review_events` (lịch sử duy�
 
 ---
 
+### Sửa và xóa bình luận
+
+- Dưới bình luận của chính mình có nút **Sửa** và **Xóa**. Sửa xong, bình luận hiện chữ **"đã chỉnh sửa"**; ai cũng bấm vào đó để xem các bản trước khi sửa.
+- Xóa: bình luận biến mất; nếu đã có người trả lời thì chỗ của nó hiện "Bình luận này đã bị xóa" để cuộc trò chuyện còn đọc được.
+- CTV và admin có nút **Xóa** trên bình luận của người khác (CTV không xóa được bình luận của admin), nhưng **không ai sửa được lời của người khác**.
+- Tối đa 20 lần sửa mỗi bình luận; bài đã khóa bình luận thì không sửa được nữa (vẫn xóa được).
+
 ## 8. Tố cáo bình luận, hạn chế và khóa thành viên
 
 ### 7.1. Thành viên tố cáo một bình luận
@@ -211,7 +232,7 @@ Lưu ý: bảng `audit_logs` (nhật ký) và `review_events` (lịch sử duy�
 
 ### 7.2. Ai nhận và xử lý thế nào
 
-1. **Mọi CTV và admin** nhận thông báo (chuông 🔔 ở console, mục *Thông báo* ở `/tai-khoan`). Một bình luận chỉ báo **một lần** dù có nhiều người tố cáo.
+1. **Mọi CTV và admin** nhận thông báo (chuông 🔔 ở console, mục *Thông báo* ở `/tai-khoan`). **CTV còn nhận email** kèm nội dung bình luận, lý do và liên kết tới hàng đợi tố cáo (admin chỉ nhận thông báo trong web). Một bình luận chỉ báo **một lần** dù có nhiều người tố cáo.
    Tố cáo về bình luận **của admin** chỉ báo cho admin.
 2. Mở **Bình luận bị tố cáo** (`/cong-tac-vien/to-cao` hoặc `/admin/to-cao`):
    - **Nhận xử lý**: đánh dấu "tôi đang làm". Người khác thấy tên bạn; CTV khác không xử lý chen ngang được (admin được tiếp quản).
@@ -231,6 +252,14 @@ Lưu ý: bảng `audit_logs` (nhật ký) và `review_events` (lịch sử duy�
 
 Làm thủ công ở `/cong-tac-vien/thanh-vien` (CTV) hoặc `/admin/nguoi-dung` (admin).
 
+### 7.4. Ảnh đại diện
+
+- Mọi tài khoản (admin, CTV, thành viên) tự tải ảnh ở **`/tai-khoan` → "Ảnh đại diện"**: JPEG/PNG/WebP tối đa 5 MB; hệ thống tự cắt vuông (ưu tiên vùng có khuôn mặt), xóa thông tin EXIF/GPS và tạo các cỡ 96/256/512 px. Có nút **Đổi ảnh** và **Gỡ ảnh**.
+- Ảnh hiện **công khai** cạnh tên ở bình luận, thanh tài khoản trên đầu trang và danh sách người dùng trong trang quản lý. Ai chưa có ảnh thì hiện chữ cái đầu của tên.
+- Giống bình luận: cần **đã xác minh email** và **không bị hạn chế** mới đặt/đổi ảnh được (gỡ ảnh thì luôn được).
+- Ảnh không phù hợp: bấm **"Gỡ ảnh"** cạnh tài khoản ở `/cong-tac-vien/thanh-vien` (CTV — chỉ tài khoản thành viên) hoặc `/admin/nguoi-dung` (admin — mọi tài khoản), nhập lý do. Người dùng nhận thông báo kèm lý do; thao tác ghi vào nhật ký.
+- Ảnh cũ bị xóa khỏi kho lưu trữ mỗi khi đổi/gỡ ảnh, và khi admin "Xóa (ẩn danh)" tài khoản.
+
 ---
 
 ## 9. Thông báo, email cho CTV và đặt lại mật khẩu
@@ -238,6 +267,7 @@ Làm thủ công ở `/cong-tac-vien/thanh-vien` (CTV) hoặc `/admin/nguoi-dung
 ### Thông báo
 - Chuông 🔔 ở console (admin/CTV) **chỉ hiện thông báo chưa đọc**; đọc xong thì hết hiện. Mở thông báo là coi như đã đọc; có nút "Đánh dấu đã đọc" cho tất cả.
 - **Ý kiến thành viên gửi lên**: mọi CTV và admin đang hoạt động nhận thông báo trong web (không gửi email). Bấm vào thông báo → mở thẳng ý kiến đó (`/cong-tac-vien/gop-y?open=…`). Ai đã mở thì thông báo của người đó mất; của người khác vẫn còn tới khi họ đọc.
+- **Bình luận bị tố cáo**: mọi CTV nhận **email** (một lần cho mỗi bình luận, dù có nhiều người tố cáo) và thông báo trong web; admin chỉ nhận thông báo trong web. Tố cáo về bình luận của admin không gửi cho CTV.
 - **Thành viên gửi bài duyệt**: mọi CTV nhận **email** (kèm liên kết tới *Hàng chờ duyệt*) và thông báo trong web; admin chỉ nhận thông báo trong web. Cần worker đang chạy (`dev:worker`) để email được gửi.
 
 ### Admin đặt lại mật khẩu (về `123456789`)
@@ -247,6 +277,18 @@ Làm thủ công ở `/cong-tac-vien/thanh-vien` (CTV) hoặc `/admin/nguoi-dung
 4. Không áp dụng cho tài khoản **quản trị viên**, cho chính bạn, hay tài khoản chưa kích hoạt (dùng "Gửi lại kích hoạt").
 
 ---
+
+## 9b. Quên mật khẩu hoặc mất thiết bị xác thực 2 lớp
+
+| Ai | Quên mật khẩu | Mất thiết bị xác thực (điện thoại) |
+|---|---|---|
+| **CTV / thành viên** | `/quen-mat-khau` → mã 6 số qua email | Đăng nhập bằng mật khẩu → ở bước nhập mã bấm **"Mất thiết bị xác thực?"** → **Gửi mã xác nhận về email** → nhập mã (+ lời nhắn) → yêu cầu gửi tới admin. Admin nhận thông báo + email, xử lý ở **`/admin/yeu-cau-xac-thuc`** (Gỡ / Từ chối kèm lý do). Người yêu cầu nhận email kết quả; được gỡ thì đăng nhập lại chỉ bằng mật khẩu và nên bật lại 2 lớp |
+| **Admin** | Ở trang đăng nhập quản trị bấm **"Quên mật khẩu?"** → nhận **liên kết** (không có mã) | Đăng nhập bằng mật khẩu → **"Mất thiết bị xác thực?"** → **Gửi liên kết gỡ xác thực về email** → mở thư, bấm liên kết, bấm **Gỡ xác thực 2 lớp** → đăng nhập lại, vào `/tai-khoan` **bật lại** (khu quản trị khóa tới khi bật) |
+
+- Còn mã khôi phục thì cứ nhập mã khôi phục ở ô mã xác thực — nhanh nhất.
+- Quên **cả hai** (mật khẩu và thiết bị): đặt lại mật khẩu trước, rồi làm bước "Mất thiết bị xác thực".
+- Email admin hiện tại: **duchoanganhhung@gmail.com**. Ai chiếm được hộp thư này *và* biết mật khẩu admin thì gỡ được 2 lớp — hãy bật xác thực 2 lớp cho chính tài khoản Gmail đó.
+- Admin trước khi bấm **Gỡ** cho người khác nên gọi điện / gặp trực tiếp để chắc là đúng người.
 
 ## 10. Tiếng Nhật và chọn ngôn ngữ
 

@@ -1,5 +1,26 @@
 # TLS terminates here. Caddy obtains/renews certificates automatically once SITE_DOMAIN points at this host (DNS is NOT managed by this repo).
 # Only the web container is exposed: it serves pages and proxies /api/v1/* to the API over the private network.
+{
+	servers {
+		# Behind Cloudflare (proxied DNS record) every connection comes from a Cloudflare address: trust ONLY those ranges to tell
+		# the visitor's real IP (CF-Connecting-IP), so per-IP rate limits, CAPTCHA and the audit log see real people.
+		# A request from any other address keeps its own connection IP (a forged header is ignored), so this is safe without Cloudflare too.
+		# Ranges: https://www.cloudflare.com/ips/ (checked 2026-10; they change rarely).
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+		trusted_proxies_strict
+		# Slow-connection attacks (slowloris): a client must send its headers quickly and cannot hold a connection open forever.
+		# read_body allows a 5 MB image on a slow mobile link; write covers the chat assistant (upstream timeout + fallback).
+		timeouts {
+			read_header 10s
+			read_body 60s
+			write 90s
+			idle 2m
+		}
+		max_header_size 32KB
+	}
+}
+
 {$SITE_DOMAIN} {
 	encode zstd gzip
 	header {
@@ -10,6 +31,7 @@
 		max_size 8MB
 	}
 	reverse_proxy web:3100 {
-		header_up X-Forwarded-For {remote_host}
+		# Overwrites anything the client sent: the app's TRUST_PROXY hop count relies on exactly one address added here.
+		header_up X-Forwarded-For {client_ip}
 	}
 }

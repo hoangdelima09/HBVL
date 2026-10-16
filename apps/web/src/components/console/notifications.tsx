@@ -21,6 +21,7 @@ interface Notice {
 const target = (n: Notice, area: 'admin' | 'staff') => {
   const root = area === 'admin' ? '/admin' : '/cong-tac-vien';
   if (n.type === 'comment.reported') return `${root}/to-cao`;
+  if (n.type === 'mfa.reset_request') return '/admin/yeu-cau-xac-thuc';
   if (n.type === 'feedback.new') return `${root}/gop-y${n.data?.feedbackId ? `?open=${n.data.feedbackId}` : ''}`;
   if (n.type === 'post.submitted') return area === 'admin' ? '/admin/bai-viet' : '/cong-tac-vien/hang-cho';
   return '/tai-khoan';

@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient, type ReportReason, type ReportStatus } from '@hbvl/database';
 import { AuditService } from '../audit/audit.service';
 import type { AuthContext } from '../auth/auth.types';
 import { E } from '../common/errors';
+import { ENV, type Env } from '../config/env';
+import { commentReportedMail } from '../mail/templates';
+import { OutboxService } from '../outbox/outbox.service';
 import { UserModerationService } from './user-moderation.service';
 
 type Tx = Prisma.TransactionClient;
@@ -28,6 +31,8 @@ export class ReportsService {
     private readonly prisma: PrismaClient,
     private readonly audit: AuditService,
     private readonly users: UserModerationService,
+    private readonly outbox: OutboxService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   private lock(tx: Tx, commentId: string) {
@@ -58,7 +63,7 @@ export class ReportsService {
             role: c.author?.role === 'ADMIN' ? 'ADMIN' : { in: ['ADMIN', 'COLLABORATOR'] },
             id: { notIn: [a.user.id, ...(c.authorId ? [c.authorId] : [])] },
           },
-          select: { id: true },
+          select: { id: true, role: true, displayName: true, email: true },
         });
         if (staff.length) {
           await tx.notification.createMany({
@@ -70,6 +75,17 @@ export class ReportsService {
               data: { commentId, postId: c.post.id, reportId: r.id },
             })),
           });
+        }
+        // Collaborators also get an e-mail (they may not be signed in). Administrators keep the in-app alert only. Reports about an
+        // administrator's comment never reach collaborators (the query above already left them out). Sent through the outbox, deduplicated.
+        const link = `${this.env.PUBLIC_ORIGIN.replace(/\/$/, '')}/cong-tac-vien/to-cao`;
+        for (const u of staff.filter((s) => s.role === 'COLLABORATOR')) {
+          const mail = commentReportedMail({ name: u.displayName, reason: REASON_LABEL[input.reason], comment: snippet(c.body, 300), postTitle: snippet(c.post.title, 120), link });
+          await this.outbox.enqueueEmail(
+            tx,
+            { to: u.email, kind: 'COMMENT_REPORTED', ...mail },
+            { aggregateType: 'comment', aggregateId: commentId, dedupeKey: `comment-reported-${r.id}-${u.id}` },
+          );
         }
       }
       return { reported: true, duplicate: false };
@@ -129,8 +145,11 @@ export class ReportsService {
         status: true,
         authorName: true,
         authorId: true,
+        editCount: true,
         author: { select: { role: true, status: true } },
         post: { select: { id: true, title: true, slug: true } },
+        // what the comment said before any edit: a reported comment cannot be quietly rewritten to hide what was reported
+        revisions: { orderBy: { replacedAt: 'desc' }, take: 20, select: { body: true, writtenAt: true, replacedAt: true } },
       },
     });
     const byComment = new Map(comments.map((c) => [c.id, c]));
@@ -139,7 +158,7 @@ export class ReportsService {
       const c = byComment.get(g.commentId);
       const reasons = rs.reduce<Record<string, number>>((m, r) => ((m[r.reason] = (m[r.reason] ?? 0) + 1), m), {});
       const claimed = rs.find((r) => r.assignedTo);
-      const last = [...rs].reverse().find((r) => r.handledBy);
+      const last = [...rs].reverse().find((r) => r.handledAt);
       return {
         commentId: g.commentId,
         status: rs.some((r) => r.status === 'IN_REVIEW') ? 'IN_REVIEW' : (rs[0]?.status ?? 'OPEN'),
@@ -160,6 +179,8 @@ export class ReportsService {
               authorRole: c.author?.role ?? null,
               authorStatus: c.author?.status ?? null,
               post: c.post,
+              editCount: c.editCount,
+              revisions: c.revisions,
             }
           : null,
         reports: rs.map((r) => ({ id: r.id, reason: r.reason, note: r.note, at: r.createdAt, reporter: r.reporter })),

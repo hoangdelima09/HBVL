@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { apiClient, uiLogin, users } from './support/helpers';
 
 const SUBJECT = 'Góp ý về chú giải bản đồ';

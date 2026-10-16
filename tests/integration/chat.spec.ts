@@ -101,12 +101,80 @@ describe('POST /chat', () => {
     expect(text).toContain('<hoi_thoai_truoc>');
   });
 
-  it('does not call the model when nothing relevant is published', async () => {
+  it('always gives the model the live site digest, even for questions no article matches; drafts and member names never appear', async () => {
     await addPost({ title: 'Bài không liên quan', text: 'nội dung khác hẳn', slug: 'khac' });
+    await addPost({ title: 'Bản nháp QWERTY', text: 'chưa đăng', slug: 'nhap-q', status: 'DRAFT' });
+    const prov = (await t.admin.query(`SELECT id FROM provinces WHERE system='LEGACY_63' AND slug='da-nang'`)).rows[0].id;
+    await t.admin.query(
+      `INSERT INTO scholarship_members (id,"fullName","normalizedName","legacyProvinceId","sourceIdentity","updatedAt") VALUES (gen_random_uuid(),'NGUYỄN BÍ MẬT','nguyen bi mat',$1,repeat('a',64),now())`,
+      [prov],
+    );
     const r = await (await t.newClient()).post('/chat', { message: 'Giá bitcoin hôm nay bao nhiêu' });
     expect(r.status).toBe(200);
-    expect(r.body.mode).toBe('no-results');
-    expect(calls).toHaveLength(0);
+    expect(r.body.mode).toBe('ai');
+    expect(calls).toHaveLength(1);
+    const sent = calls[0]!.body.contents[0]!.parts[0]!.text;
+    expect(sent).toContain('<tai_lieu nguon="thong-tin-chung">');
+    expect(sent).toContain('Bài không liên quan'); // latest published content is known
+    expect(sent).toContain('1 học viên'); // map counts
+    expect(sent).toContain('Đà Nẵng 1');
+    expect(sent).not.toContain('QWERTY'); // drafts never
+    expect(sent).not.toContain('BÍ MẬT'); // member names never
+    expect(calls[0]!.body.systemInstruction.parts[0]!.text).toContain('Chỉ trả lời các câu hỏi liên quan đến website');
+  });
+
+  it('knows newly published content on the very next question (no restart, no re-index)', async () => {
+    const c = await t.newClient();
+    await c.post('/chat', { message: 'Bài mới nhất là gì?' });
+    expect(JSON.stringify(calls[0]!.body)).not.toContain('Hội trại mùa đông');
+    // publish through the real workflow: member submits, a collaborator publishes
+    const member = await t.loginAs(await t.makeUser({ role: 'MEMBER' }));
+    const collab = await t.loginAs(await t.makeUser({ role: 'COLLABORATOR' }));
+    const cat = (await t.admin.query(`SELECT id FROM categories WHERE slug='chuyen-vuon-len'`)).rows[0].id as string;
+    const k = () => `k-${Math.random().toString(36).slice(2)}`;
+    const d = await member.post(
+      '/me/posts',
+      { title: 'Hội trại mùa đông 2026', categoryId: cat, contentHtml: '<p>Hội trại dành cho học viên khu vực phía Nam.</p>' },
+      { 'Idempotency-Key': k() },
+    );
+    const s = await member.post(`/me/posts/${d.body.id}/submit`, undefined, { 'Idempotency-Key': k(), 'If-Match': `"${d.body.version}"` });
+    expect((await collab.post(`/staff/posts/${d.body.id}/publish`, undefined, { 'If-Match': `"${s.body.version}"` })).status).toBe(200);
+
+    calls = [];
+    const r = await c.post('/chat', { message: 'Hội trại mùa đông là gì?' });
+    expect(r.body.mode).toBe('ai');
+    const sent = JSON.stringify(calls[0]!.body);
+    expect(sent).toContain('Hội trại mùa đông 2026');
+    expect(sent).toContain('khu vực phía Nam');
+    expect(r.body.sources.map((x: { path: string }) => x.path)).toContain(`/bai-viet/${(await t.admin.query(`SELECT slug FROM posts WHERE id=$1`, [d.body.id])).rows[0].slug}`);
+  });
+
+  it('finds a member-submitted post by its title (titles are indexed, not only the body)', async () => {
+    const member = await t.loginAs(await t.makeUser({ role: 'MEMBER' }));
+    const cat = (await t.admin.query(`SELECT id FROM categories WHERE slug='chuyen-vuon-len'`)).rows[0].id as string;
+    const d = await member.post('/me/posts', { title: 'Chuyến đi Cao Nguyên Đá', categoryId: cat, contentHtml: '<p>xyz</p>' }, { 'Idempotency-Key': `k-${Date.now()}` });
+    const row = (await t.admin.query(`SELECT "searchText" FROM posts WHERE id=$1`, [d.body.id])).rows[0];
+    expect(row.searchText).toContain('chuyen di cao nguyen da');
+  });
+
+  it('without the model: greets, answers map and "about" questions from site data, and says "not found" otherwise', async () => {
+    respond = () => ({ status: 403, json: {} });
+    const c = await t.newClient();
+    // (inserted before the first question: map counts are cached, and a direct SQL insert skips the cache invalidation the importer does)
+    const prov = (await t.admin.query(`SELECT id FROM provinces WHERE system='LEGACY_63' AND slug='dong-thap'`)).rows[0].id;
+    await t.admin.query(
+      `INSERT INTO scholarship_members (id,"fullName","normalizedName","legacyProvinceId","sourceIdentity","updatedAt") VALUES (gen_random_uuid(),'A','a',$1,repeat('b',64),now())`,
+      [prov],
+    );
+    const hi = await c.post('/chat', { message: 'xin chào' });
+    expect(hi.body.mode).toBe('fallback');
+    expect(hi.body.answer).toContain('Xin chào');
+    const map = await c.post('/chat', { message: 'Bản đồ có bao nhiêu học viên?' });
+    expect(map.body.mode).toBe('fallback');
+    expect(map.body.answer).toMatch(/1 học viên/);
+    expect(map.body.sources.map((x: { path: string }) => x.path)).toContain('/category/dong-du-ky/ban-do-vuon-len');
+    const none = await c.post('/chat', { message: 'Giá bitcoin hôm nay bao nhiêu' });
+    expect(none.body.mode).toBe('no-results');
   });
 
   it.each([

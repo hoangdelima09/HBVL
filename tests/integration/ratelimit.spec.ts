@@ -62,18 +62,18 @@ describe('rate limiting (Redis, real throttling enabled)', () => {
     expect(results.slice(3).every((s) => s === 429)).toBe(true);
   });
 
-  it('forgot-password: throttled per address and never reveals whether the account exists', async () => {
+  it('forgot-password: throttled per client; an unknown address is refused the same way every time', async () => {
     const c = await t.newClient();
     const results: number[] = [];
-    for (let i = 0; i < 12; i++) results.push((await c.post('/auth/forgot-password', { email: 'nobody@example.test' })).status);
+    for (let i = 0; i < 12; i++) results.push((await c.post('/auth/forgot-password', { email: 'nobody@example.test', portal: 'MEMBER' })).status);
     expect(new Set(results.slice(0, 10))).toEqual(new Set([results[0]])); // identical answer for an unknown address
-    expect(results[0]).toBeLessThan(300);
+    expect(results[0]).toBe(400);
     expect(results.slice(10).every((s) => s === 429)).toBe(true);
   });
 
   it('the throttle state lives in Redis (so it is shared by every API instance) and expires', async () => {
     const c = await t.newClient();
-    await c.post('/auth/forgot-password', { email: 'x@example.test' });
+    await c.post('/auth/forgot-password', { email: 'x@example.test', portal: 'MEMBER' });
     const { Redis } = await import('ioredis');
     const redis = new Redis(process.env.REDIS_URL!);
     try {

@@ -5,18 +5,18 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors disabled:pointer-events-none disabled:opacity-60 select-none whitespace-nowrap',
+  'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-150 active:scale-[0.985] disabled:pointer-events-none disabled:opacity-55 select-none whitespace-nowrap cursor-pointer',
   {
     variants: {
       variant: {
-        primary: 'bg-brand-600 text-white hover:bg-brand-700 shadow-card',
-        secondary: 'bg-white text-brand-700 border border-brand-200 hover:bg-brand-50',
-        outline: 'border border-line bg-transparent text-ink hover:bg-white',
-        ghost: 'text-ink-2 hover:bg-paper-2',
-        danger: 'bg-danger-600 text-white hover:bg-red-800',
-        accent: 'bg-accent-500 text-ink hover:bg-amber-400',
+        primary: 'bg-brand-600 text-white shadow-card hover:bg-brand-700 hover:shadow-lift active:bg-brand-800',
+        secondary: 'bg-white text-brand-700 border border-brand-200 shadow-subtle hover:bg-brand-50 hover:border-brand-300 hover:text-brand-800',
+        outline: 'border border-line bg-white/80 text-ink hover:bg-white hover:border-slate-300 shadow-subtle',
+        ghost: 'text-ink-2 hover:bg-paper-2 hover:text-ink active:bg-slate-200/60',
+        danger: 'bg-danger-600 text-white shadow-card hover:bg-red-700 hover:shadow-lift active:bg-red-800',
+        accent: 'bg-accent-500 text-ink font-bold shadow-card hover:bg-amber-400 hover:shadow-lift active:bg-amber-500',
       },
-      size: { sm: 'h-9 px-4 text-sm', md: 'h-11 px-6 text-[0.95rem]', lg: 'h-12 px-8 text-base', icon: 'h-10 w-10' },
+      size: { sm: 'h-9 px-4 text-sm', md: 'h-11 px-6 text-[0.95rem]', lg: 'h-12 px-8 text-base', icon: 'h-10 w-10 p-0' },
     },
     defaultVariants: { variant: 'primary', size: 'md' },
   },

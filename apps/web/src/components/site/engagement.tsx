@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Copy, Flag, Heart, MessageCircle, Reply, Share2 } from 'lucide-react';
+import { Check, Copy, Flag, Heart, History, MessageCircle, Pencil, Reply, Share2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePathname } from 'next/navigation';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/dialog';
+import { ConfirmDialog, Modal } from '@/components/ui/dialog';
 import { Alert, Skeleton } from '@/components/ui/misc';
 import { RestrictionNotice } from './restriction-notice';
 import { Field, Textarea } from '@/components/ui/form';
-import { ApiError, del, get, post, put } from '@/lib/client';
+import { ApiError, del, get, patch, post, put } from '@/lib/client';
 import { formatDate, localePath, tr, type Locale } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
@@ -231,7 +232,236 @@ interface CommentRow {
   body: string;
   author: string;
   authorRole: string | null;
+  /** 96 px profile picture, null → initials (and always null for a removed comment). */
+  authorAvatar: string | null;
   createdAt: string;
+  editedAt: string | null;
+  editCount: number;
+  deleted: boolean;
+  mine: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+/** Earlier versions of an edited comment — public, so nobody can quietly rewrite what they said. */
+function CommentHistory({ id, locale }: { id: string; locale: Locale }) {
+  const t = tr(locale);
+  const [data, setData] = useState<{ current: { body: string; writtenAt: string }; items: { body: string; writtenAt: string; replacedAt: string }[] } | null>(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    get<NonNullable<typeof data>>(`/comments/${id}/revisions`)
+      .then(setData)
+      .catch(() => setErr(true));
+  }, [id]);
+  if (err) return <p className="mt-2 text-xs text-red-700">{t('Không tải được lịch sử chỉnh sửa.', 'Could not load the edit history.', '編集履歴を読み込めませんでした。')}</p>;
+  if (!data) return <Skeleton className="mt-2 h-10 w-full" />;
+  return (
+    <ol className="mt-2 space-y-2 border-l-2 border-amber-200 pl-3" data-testid="comment-history">
+      {data.items.map((r, i) => (
+        <li key={i} className="text-sm">
+          <p className="text-xs text-muted">
+            {t('Bản viết lúc', 'Version written', '投稿日時')} {formatDate(locale, r.writtenAt, true)} · {t('được sửa lúc', 'replaced', '編集日時')}{' '}
+            {formatDate(locale, r.replacedAt, true)}
+          </p>
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-ink-2">{r.body}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function CommentItem({
+  c,
+  locale,
+  canReply,
+  canReport,
+  onReply,
+  onReport,
+  onChanged,
+}: {
+  c: CommentRow;
+  locale: Locale;
+  canReply: boolean;
+  canReport: boolean;
+  onReply: () => void;
+  onReport: () => void;
+  onChanged: () => Promise<void>;
+}) {
+  const t = tr(locale);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(c.body);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string>();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const indent = { marginLeft: `${Math.min(c.depth, 4) * 1.25}rem` };
+
+  if (c.deleted)
+    return (
+      <li id={`comment-${c.id}`} style={indent} className="rounded-xl border border-dashed border-line bg-paper/60 p-4 text-sm italic text-muted" data-testid="comment-deleted">
+        {t('Bình luận này đã bị xóa.', 'This comment was deleted.', 'このコメントは削除されました。')}
+      </li>
+    );
+
+  const save = async () => {
+    const body = draft.trim();
+    if (!body) {
+      setErr(t('Bình luận không được để trống.', 'The comment cannot be empty.', 'コメントを空にすることはできません。'));
+      return;
+    }
+    setBusy(true);
+    setErr(undefined);
+    try {
+      const r = await patch<{ awaitingModeration: boolean }>(`/comments/${c.id}`, { body });
+      setEditing(false);
+      if (r.awaitingModeration) toast.info(t('Bình luận đã sửa đang chờ kiểm duyệt.', 'Your edited comment is awaiting moderation.', '編集したコメントは承認待ちです。'));
+      else toast.success(t('Đã lưu chỉnh sửa.', 'Changes saved.', '変更を保存しました。'));
+      await onChanged();
+    } catch (e) {
+      setErr(
+        e instanceof ApiError
+          ? (e.fieldErrors().body ?? e.message)
+          : t('Không lưu được. Vui lòng thử lại.', 'Could not save. Please try again.', '保存できませんでした。もう一度お試しください。'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await del(`/comments/${c.id}`);
+      toast.success(t('Đã xóa bình luận.', 'Comment deleted.', 'コメントを削除しました。'));
+      setConfirmDelete(false);
+      await onChanged();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : t('Không xóa được.', 'Could not delete.', '削除できませんでした。'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const action = 'inline-flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer';
+
+  return (
+    <li id={`comment-${c.id}`} style={indent} className="rounded-xl border border-line bg-white p-4.5 shadow-subtle transition-colors hover:border-slate-300" data-testid="comment">
+      <div className="flex flex-wrap items-center gap-x-3 text-sm">
+        {!c.deleted && <Avatar src={c.authorAvatar} name={c.author} size={28} />}
+        <strong className="font-semibold text-ink">{c.author}</strong>
+        {c.authorRole === 'ADMIN' && (
+          <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-900 ring-1 ring-brand-200">{t('Quản trị', 'Admin')}</span>
+        )}
+        <time className="text-xs text-muted" dateTime={c.createdAt}>
+          {formatDate(locale, c.createdAt, true)}
+        </time>
+        {c.editedAt && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-xs text-muted underline-offset-2 hover:text-brand-700 hover:underline"
+            aria-expanded={showHistory}
+            onClick={() => setShowHistory((v) => !v)}
+            data-testid="comment-edited"
+            title={t('Xem nội dung trước khi sửa', 'See what it said before', '編集前の内容を見る')}
+          >
+            <History className="h-3 w-3" aria-hidden />
+            {t('đã chỉnh sửa', 'edited', '編集済み')}
+            {c.editCount > 1 ? ` (${c.editCount})` : ''}
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <div className="mt-2 space-y-2">
+          <label htmlFor={`edit-${c.id}`} className="sr-only">
+            {t('Sửa bình luận', 'Edit comment', 'コメントを編集')}
+          </label>
+          <Textarea id={`edit-${c.id}`} rows={3} maxLength={5000} value={draft} onChange={(e) => setDraft(e.target.value)} data-testid="comment-edit-body" autoFocus />
+          <p className="text-xs text-muted">
+            {t('Nội dung cũ vẫn được lưu và mọi người có thể xem lại.', 'The previous text is kept and anyone can still see it.', '以前の内容は保存され、誰でも確認できます。')}
+          </p>
+          {err && <Alert kind="error">{err}</Alert>}
+          <div className="flex gap-2">
+            <Button size="sm" loading={busy} disabled={!draft.trim() || draft.trim() === c.body} onClick={() => void save()} data-testid="comment-edit-save">
+              {t('Lưu', 'Save', '保存')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditing(false);
+                setDraft(c.body);
+                setErr(undefined);
+              }}
+            >
+              {t('Huỷ', 'Cancel', 'キャンセル')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-2" data-testid="comment-body-text">
+          {c.body}
+        </p>
+      )}
+      {showHistory && c.editedAt && <CommentHistory id={c.id} locale={locale} />}
+      {!editing && (
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          {canReply && (
+            <button type="button" className={cn(action, 'text-brand-700 hover:text-brand-900')} onClick={onReply}>
+              <Reply className="h-3.5 w-3.5" aria-hidden />
+              {t('Trả lời', 'Reply')}
+            </button>
+          )}
+          {c.canEdit && (
+            <button
+              type="button"
+              className={cn(action, 'text-ink-2 hover:text-brand-700')}
+              onClick={() => {
+                setDraft(c.body);
+                setEditing(true);
+              }}
+              data-testid="comment-edit"
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              {t('Sửa', 'Edit', '編集')}
+            </button>
+          )}
+          {c.canDelete && (
+            <button type="button" className={cn(action, 'text-ink-2 hover:text-red-700')} onClick={() => setConfirmDelete(true)} data-testid="comment-delete">
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              {t('Xóa', 'Delete', '削除')}
+            </button>
+          )}
+          {canReport && !c.mine && (
+            <button type="button" className={cn(action, 'font-medium text-muted hover:text-red-700')} onClick={onReport} data-testid="report-comment">
+              <Flag className="h-3.5 w-3.5" aria-hidden />
+              {t('Tố cáo', 'Report', '通報')}
+            </button>
+          )}
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={(o) => !o && setConfirmDelete(false)}
+        title={t('Xóa bình luận này?', 'Delete this comment?', 'このコメントを削除しますか？')}
+        description={
+          c.mine
+            ? t(
+                'Bình luận sẽ biến mất khỏi bài viết. Nếu đã có người trả lời, chỗ của nó hiện “Bình luận này đã bị xóa”.',
+                'The comment disappears from the post. If someone replied, its place shows “This comment was deleted”.',
+                'コメントは記事から削除されます。返信がある場合は「このコメントは削除されました」と表示されます。',
+              )
+            : t(
+                'Bạn đang xóa bình luận của người khác với tư cách người kiểm duyệt.',
+                'You are deleting someone else’s comment as a moderator.',
+                'モデレーターとして他の人のコメントを削除します。',
+              )
+        }
+        confirmLabel={t('Xóa', 'Delete', '削除')}
+        cancelLabel={t('Huỷ', 'Cancel', 'キャンセル')}
+        danger
+        loading={busy}
+        onConfirm={() => void remove()}
+      />
+    </li>
+  );
 }
 
 export function CommentsSection({ postId, locale, open }: { postId: string; locale: Locale; open: boolean }) {
@@ -255,9 +485,10 @@ export function CommentsSection({ postId, locale, open }: { postId: string; loca
       setError(true);
     }
   }, [postId]);
+  // reload when the viewer signs in or out: which comments are "mine" (edit/delete) is decided by the server per viewer
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, user?.id]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -292,7 +523,7 @@ export function CommentsSection({ postId, locale, open }: { postId: string; loca
     <section id="comments" aria-labelledby="comments-title" className="mt-12 scroll-mt-24">
       <h2 id="comments-title" className="flex items-center gap-2 font-serif text-2xl font-semibold">
         <MessageCircle className="h-6 w-6" aria-hidden />
-        {t('Bình luận', 'Comments')} {items && <span className="text-muted">({items.length})</span>}
+        {t('Bình luận', 'Comments')} {items && <span className="text-muted">({items.filter((c) => !c.deleted).length})</span>}
       </h2>
       {error ? (
         <Alert kind="error" className="mt-4">
@@ -306,44 +537,21 @@ export function CommentsSection({ postId, locale, open }: { postId: string; loca
       ) : items.length === 0 ? (
         <p className="mt-4 text-muted">{t('Chưa có bình luận nào.', 'No comments yet.')}</p>
       ) : (
-        <ol className="mt-4 space-y-4">
+        <ol className="mt-6 space-y-4">
           {items.map((c) => (
-            <li key={c.id} id={`comment-${c.id}`} style={{ marginLeft: `${Math.min(c.depth, 4) * 1.25}rem` }} className="rounded-lg border border-line bg-white p-4">
-              <div className="flex flex-wrap items-baseline gap-x-3 text-sm">
-                <strong>{c.author}</strong>
-                {c.authorRole === 'ADMIN' && <span className="rounded-full bg-brand-100 px-2 text-xs font-semibold text-brand-900">{t('Quản trị', 'Admin')}</span>}
-                <time className="text-muted" dateTime={c.createdAt}>
-                  {formatDate(locale, c.createdAt, true)}
-                </time>
-              </div>
-              <p className="mt-1 whitespace-pre-wrap break-words text-ink-2">{c.body}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-4">
-                {open && user && c.depth < 4 && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700"
-                    onClick={() => {
-                      setReplyTo(c.id);
-                      taRef.current?.focus();
-                    }}
-                  >
-                    <Reply className="h-3.5 w-3.5" aria-hidden />
-                    {t('Trả lời', 'Reply')}
-                  </button>
-                )}
-                {user?.emailVerified && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-sm text-muted hover:text-red-700"
-                    onClick={() => setReporting(c.id)}
-                    data-testid="report-comment"
-                  >
-                    <Flag className="h-3.5 w-3.5" aria-hidden />
-                    {t('Tố cáo', 'Report', '通報')}
-                  </button>
-                )}
-              </div>
-            </li>
+            <CommentItem
+              key={`${c.id}-${c.editCount}`}
+              c={c}
+              locale={locale}
+              canReply={!!(open && user && c.depth < 4)}
+              canReport={!!user?.emailVerified}
+              onReply={() => {
+                setReplyTo(c.id);
+                taRef.current?.focus();
+              }}
+              onReport={() => setReporting(c.id)}
+              onChanged={load}
+            />
           ))}
         </ol>
       )}

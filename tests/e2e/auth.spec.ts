@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/test';
 import { apiClient, mail, uiLogin, users, watchErrors } from './support/helpers';
 
 test.describe('registration → e-mail verification → account (real UI + Mailpit)', () => {
@@ -105,8 +105,9 @@ test.describe('sign-in portals', () => {
     await page.getByLabel(/Mã xác thực/).fill('000000');
     await page.getByRole('button', { name: 'Xác nhận' }).click();
     await expect(page.getByText('Mã xác thực không đúng.')).toBeVisible();
+    // a session that never completed the second step is treated as signed out everywhere
     await page.goto('/admin');
-    await expect(page.getByText('Cần xác thực hai lớp (MFA)')).toBeVisible();
+    await expect(page.getByText('Cần đăng nhập')).toBeVisible();
   });
 });
 

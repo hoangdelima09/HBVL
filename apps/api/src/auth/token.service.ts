@@ -24,12 +24,22 @@ export class TokenService {
   }
 
   /** Issues a token and invalidates earlier unused tokens of the same purpose for the user. Returns the raw link token and the 6-digit code (both shown only in the e-mail). */
-  async issue(tx: Prisma.TransactionClient | undefined, userId: string, purpose: AuthTokenPurpose, ttlMs: number): Promise<{ raw: string; code: string }> {
+  async issue(
+    tx: Prisma.TransactionClient | undefined,
+    userId: string,
+    purpose: AuthTokenPurpose,
+    ttlMs: number,
+    opts: { withCode?: boolean } = {},
+  ): Promise<{ raw: string; code: string }> {
     const db = tx ?? this.prisma;
     await db.authToken.updateMany({ where: { userId, purpose, usedAt: null }, data: { usedAt: new Date() } });
     const raw = randomToken(32);
-    const code = randomCode();
-    await db.authToken.create({ data: { userId, purpose, tokenHash: this.hash(raw), codeHash: this.codeHash(userId, purpose, code), expiresAt: new Date(Date.now() + ttlMs) } });
+    // Link-only tokens (administrators) store no code at all, so no 6-digit guess can ever match them.
+    const withCode = opts.withCode ?? true;
+    const code = withCode ? randomCode() : '';
+    await db.authToken.create({
+      data: { userId, purpose, tokenHash: this.hash(raw), codeHash: withCode ? this.codeHash(userId, purpose, code) : null, expiresAt: new Date(Date.now() + ttlMs) },
+    });
     return { raw, code };
   }
 

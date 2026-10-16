@@ -21,8 +21,8 @@
     "email": "quykhuyenhocdongdu@gmail.com",
     "hoursVi": ["Thứ 2 — Thứ 6: 8:00 — 17:00", "Thứ 7: 8:00 — 11:30"],
     "hoursEn": ["Mon — Fri: 8:00 — 17:00", "Sat: 8:00 — 11:30"],
-    "mapUrl": "https://www.openstreetmap.org/?mlat=10.8&mlon=106.68#map=15/10.8/106.68",
-    "mapNote": "Toạ độ gần đúng lấy từ iframe Google Maps của theme cũ (10.8, 106.68); cần xác nhận địa chỉ chính xác."
+    "mapUrl": "",
+    "mapNote": "Bản đồ trang Liên hệ dùng Google Maps và tự tạo từ addressVi. Đã đối chiếu với Google Maps: 43D/46 Hồ Văn Huê, Đức Nhuận, Hồ Chí Minh (10.803677, 106.675532). mapUrl chỉ điền khi muốn trỏ tới một liên kết Google Maps riêng."
   },
   "home": {
     "hero": {

@@ -68,9 +68,9 @@ export default async function SearchPage({ params, searchParams }: Props) {
           defaultValue={q}
           maxLength={100}
           placeholder={t('Bạn muốn tìm gì?', 'What are you looking for?')}
-          className="h-12 flex-1 rounded-full border border-slate-300 bg-white px-5 placeholder:text-slate-500"
+          className="h-12 min-w-0 flex-1 rounded-full border border-slate-300 bg-white px-5 placeholder:text-slate-500"
         />
-        <Button type="submit" size="lg">
+        <Button type="submit" size="lg" className="shrink-0 px-5 sm:px-8">
           <Search className="h-4 w-4" aria-hidden />
           {t('Tìm kiếm', 'Search')}
         </Button>

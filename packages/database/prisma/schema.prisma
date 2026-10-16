@@ -37,6 +37,14 @@ enum AuthTokenPurpose {
   VERIFY_EMAIL
   RESET_PASSWORD
   ACTIVATE_ACCOUNT // migrated / admin-invited accounts
+  MFA_RECOVERY // 6-digit code e-mailed to a collaborator/member who lost their authenticator (proves the mailbox before asking an admin)
+  MFA_RESET // link e-mailed to an administrator who lost their authenticator (removes MFA after password + mailbox)
+}
+
+enum MfaResetStatus {
+  PENDING
+  APPROVED // an administrator removed the user's two-factor authentication
+  REJECTED
 }
 
 enum CardType {
@@ -109,6 +117,7 @@ enum MediaPurpose {
   PROVINCE_PHOTO
   SITE
   LEGACY_IMPORT
+  AVATAR // profile picture: square variants, public as soon as it is set
 }
 
 enum PostMediaRole {
@@ -252,26 +261,30 @@ model User {
   restrictedAt       DateTime?  @db.Timestamptz(6)
   restrictedUntil    DateTime?  @db.Timestamptz(6) // NULL while restrictedAt is set = until lifted by staff
   restrictionReason  String?    @db.VarChar(300)
+  avatarAssetId      String?    @unique @db.Uuid // profile picture (MediaAsset, purpose AVATAR)
   createdAt          DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?  @db.Timestamptz(6)
 
-  profile        UserProfile?
-  reportsMade    CommentReport[]    @relation("ReportReporter")
-  reportsClaimed CommentReport[]    @relation("ReportAssignee")
-  reportsHandled CommentReport[]    @relation("ReportHandler")
-  sessions       Session[]
-  authTokens     AuthToken[]
-  recoveryCodes  MfaRecoveryCode[]
-  posts          Post[]             @relation("PostAuthor")
-  comments       Comment[]
-  likes          PostLike[]
-  feedbacks      Feedback[]
-  contacts       ContactMessage[]
-  notifications  Notification[]
-  reviewEvents   ReviewEvent[]
-  mediaAssets    MediaAsset[]
-  member         ScholarshipMember?
+  profile          UserProfile?
+  reportsMade      CommentReport[]    @relation("ReportReporter")
+  reportsClaimed   CommentReport[]    @relation("ReportAssignee")
+  reportsHandled   CommentReport[]    @relation("ReportHandler")
+  sessions         Session[]
+  authTokens       AuthToken[]
+  recoveryCodes    MfaRecoveryCode[]
+  posts            Post[]             @relation("PostAuthor")
+  comments         Comment[]
+  likes            PostLike[]
+  feedbacks        Feedback[]
+  contacts         ContactMessage[]
+  notifications    Notification[]
+  reviewEvents     ReviewEvent[]
+  mediaAssets      MediaAsset[]       @relation("MediaOwner")
+  avatar           MediaAsset?        @relation("UserAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
+  member           ScholarshipMember?
+  mfaResetRequests MfaResetRequest[]  @relation("MfaResetRequester")
+  mfaResetReviews  MfaResetRequest[]  @relation("MfaResetReviewer")
 
   @@index([role, status])
   @@map("users")
@@ -597,7 +610,8 @@ model MediaAsset {
   attachedAt     DateTime?       @db.Timestamptz(6)
   deletedAt      DateTime?       @db.Timestamptz(6)
 
-  owner       User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owner       User?       @relation("MediaOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  avatarOf    User?       @relation("UserAvatar")
   featuredFor Post[]      @relation("PostFeatured")
   postMedia   PostMedia[]
   provinces   Province[]
@@ -634,19 +648,57 @@ model Comment {
   body          String        @db.VarChar(5000)
   status        CommentStatus @default(PENDING)
   moderatedById String?       @db.Uuid
+  editedAt      DateTime?     @db.Timestamptz(6) // last time the author changed the text (public "đã chỉnh sửa")
+  editCount     Int           @default(0)
+  deletedAt     DateTime?     @db.Timestamptz(6) // removed by its author (status TRASHED); kept as a placeholder while it has replies
   createdAt     DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime      @updatedAt @db.Timestamptz(6)
 
-  post     Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author   User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  parent   Comment?        @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
-  children Comment[]       @relation("CommentThread")
-  reports  CommentReport[]
+  revisions CommentRevision[]
+  post      Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User?             @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  parent    Comment?          @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Comment[]         @relation("CommentThread")
+  reports   CommentReport[]
 
   @@index([postId, status, createdAt])
   @@index([status, createdAt])
   @@index([authorId])
   @@map("comments")
+}
+
+/// A collaborator/member who lost their authenticator asks an administrator to remove two-factor authentication.
+/// Created only after a password sign-in AND a code e-mailed to the account address. At most one PENDING per user (partial unique index).
+model MfaResetRequest {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  userId       String         @db.Uuid
+  status       MfaResetStatus @default(PENDING)
+  note         String?        @db.VarChar(500) // the requester's own message to the administrator
+  reviewerId   String?        @db.Uuid
+  reviewedAt   DateTime?      @db.Timestamptz(6)
+  decisionNote String?        @db.VarChar(500)
+  createdAt    DateTime       @default(now()) @db.Timestamptz(6)
+
+  user     User  @relation("MfaResetRequester", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("MfaResetReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("mfa_reset_requests")
+}
+
+/// Earlier text of an edited comment. Public: anyone who can see the comment can see what it said before (no silent rewrites).
+model CommentRevision {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  commentId  String   @db.Uuid
+  body       String   @db.VarChar(5000)
+  writtenAt  DateTime @db.Timestamptz(6) // when this text was posted (comment creation or the previous edit)
+  replacedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId, replacedAt])
+  @@map("comment_revisions")
 }
 
 /// A member's report of a comment. Staff (collaborator or admin) are notified; whoever acts first handles it (atomic claim / resolve).

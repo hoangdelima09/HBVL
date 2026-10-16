@@ -413,6 +413,7 @@ export function AdminDashboard() {
     contactMailFailed: number;
     accountsAwaitingActivation: number;
     openReports: number;
+    mfaRequests: number;
     recentAudit: { id: string; at: string; action: string; resourceType: string; result: string }[];
   }>('/admin/dashboard');
   return (
@@ -431,6 +432,7 @@ export function AdminDashboard() {
               <Stat label="Học viên trên bản đồ" value={d.members} href="/admin/hoc-vien" />
               <Stat label="Chờ kích hoạt" value={d.accountsAwaitingActivation} href="/admin/nguoi-dung" />
               <Stat label="Bình luận bị tố cáo" value={d.openReports} href="/admin/to-cao" tone={d.openReports ? 'danger' : undefined} />
+              <Stat label="Yêu cầu gỡ xác thực" value={d.mfaRequests} href="/admin/yeu-cau-xac-thuc" tone={d.mfaRequests ? 'warn' : undefined} />
             </div>
             {(d.contactMailFailed > 0 || (d.outbox.DEAD ?? 0) > 0) && (
               <Alert kind="error" title="Email thông báo gặp lỗi">

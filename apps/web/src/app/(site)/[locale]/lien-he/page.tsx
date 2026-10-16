@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Clock, Mail, MapPin, Phone } from 'lucide-react';
+import { ContactMap } from '@/components/site/contact-map';
 import { ContactForm } from '@/components/site/forms-pages';
 import { apiGet } from '@/lib/api';
 import { isLocale, tr } from '@/lib/i18n';
+import { googleMapsLinks } from '@/lib/maps';
 import type { Settings } from '@/lib/types';
 
 export const metadata: Metadata = { title: 'Liên hệ' };
@@ -12,8 +14,23 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
   if (!isLocale(locale)) notFound();
   const t = tr(locale);
   const s = (await apiGet<Settings>('/settings/public')).contact;
+  // The map is driven by the Vietnamese address shown on this page (the form Google Maps resolves exactly); `hl` only sets the map's own language.
+  const map = googleMapsLinks(s.addressVi, { override: s.mapUrl, hl: locale });
+  const address = t(s.addressVi, s.addressEn);
   const cards = [
-    { icon: MapPin, title: t('Địa chỉ', 'Address'), body: <p>{t(s.addressVi, s.addressEn)}</p> },
+    {
+      icon: MapPin,
+      title: t('Địa chỉ', 'Address'),
+      body: map ? (
+        <p>
+          <a className="hover:underline" href={map.open} target="_blank" rel="noopener noreferrer">
+            {address}
+          </a>
+        </p>
+      ) : (
+        <p>{address}</p>
+      ),
+    },
     {
       icon: Phone,
       title: t('Điện thoại', 'Phone'),
@@ -71,19 +88,24 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
       </ul>
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <div className="overflow-hidden rounded-xl bg-white shadow-card">
-          <iframe
-            title={t('Bản đồ văn phòng', 'Office location map')}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            className="h-[26rem] w-full border-0"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=106.66%2C10.79%2C106.70%2C10.82&layer=mapnik&marker=10.8%2C106.68"
-          />
-          <p className="p-3 text-sm text-muted">
-            <a className="font-semibold text-brand-700 underline" href={s.mapUrl} target="_blank" rel="noopener noreferrer">
-              {t('Mở bản đồ lớn hơn', 'Open larger map')}
-            </a>{' '}
-            · {t('Vị trí gần đúng; vui lòng xác nhận địa chỉ trước khi đến.', 'Approximate location; please confirm the address before visiting.')}
-          </p>
+          {map ? (
+            <>
+              <ContactMap
+                embedSrc={map.embed}
+                href={map.open}
+                title={t('Bản đồ văn phòng', 'Office location map')}
+                label={t(`Mở ${s.addressVi} trên Google Maps (tab mới)`, `Open ${s.addressEn} in Google Maps (new tab)`, `${s.addressVi} を Google マップで開く（新しいタブ）`)}
+                cta={t('Mở trong Google Maps', 'Open in Google Maps', 'Google マップで開く')}
+                address={address}
+              />
+              <p className="p-3 text-sm text-muted">
+                <MapPin className="mr-1 inline h-4 w-4" aria-hidden />
+                {address}
+              </p>
+            </>
+          ) : (
+            <p className="p-6 text-muted">{address}</p>
+          )}
         </div>
         <div className="rounded-xl bg-white p-6 shadow-card sm:p-8">
           <h2 className="font-serif text-2xl font-semibold">{t('Gửi tin nhắn', 'Send a message')}</h2>

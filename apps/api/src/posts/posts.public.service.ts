@@ -246,6 +246,41 @@ export class PostsPublicService {
     }));
   }
 
+  /**
+   * What is on the site right now, for the assistant: the latest published posts/events/programs (title, section, date, a short lead) and
+   * per-kind totals. Read through the public cache, which every publish/unpublish/edit invalidates, so the assistant knows new content at once.
+   */
+  async chatDigest() {
+    return this.cache.wrap('chat:digest', 60, async () => {
+      const rows = await this.prisma.$queryRaw<
+        { id: string; kind: string; slug: string; title: string; lead: string; at: Date | null; section: string | null; startsAt: Date | null; place: string | null }[]
+      >`
+        SELECT p.id, p.kind::text AS kind, p.slug, p.title, left(coalesce(nullif(p.excerpt, ''), p."contentText"), 220) AS lead, p."publishedAt" AS at,
+               (SELECT t.name FROM post_categories pc JOIN category_translations t ON t."categoryId" = pc."categoryId" AND t.locale = 'vi'
+                 WHERE pc."postId" = p.id ORDER BY pc."isPrimary" DESC LIMIT 1) AS section,
+               e."startsAt", e."locationText" AS place
+          FROM posts p LEFT JOIN event_details e ON e."postId" = p.id
+         WHERE p.status = 'PUBLISHED' AND p."deletedAt" IS NULL AND p."publishedAt" <= now()
+         ORDER BY p."publishedAt" DESC, p.id DESC
+         LIMIT 30`;
+      const counts = await this.prisma.post.groupBy({ by: ['kind'], where: published(), _count: { _all: true } });
+      const path = (r: { kind: string; slug: string }) => (r.kind === 'EVENT' ? `/su-kien/${r.slug}` : r.kind === 'PROGRAM' ? `/chuong-trinh/${r.slug}` : `/bai-viet/${r.slug}`);
+      return {
+        items: rows.map((r) => ({
+          kind: r.kind,
+          title: r.title,
+          path: path(r),
+          section: r.section,
+          at: r.at,
+          lead: r.lead.replace(/\s+/g, ' ').trim(),
+          startsAt: r.startsAt,
+          place: r.place,
+        })),
+        totals: Object.fromEntries(counts.map((c) => [c.kind, c._count._all])) as Partial<Record<'POST' | 'EVENT' | 'PROGRAM', number>>,
+      };
+    });
+  }
+
   /** id → full path (`parent/child`) for published pages; pages are few, so one cached lookup beats a recursive query per search. */
   private async pagePaths(): Promise<Map<string, string>> {
     const rows = await this.cache.wrap('page-paths', 300, () =>

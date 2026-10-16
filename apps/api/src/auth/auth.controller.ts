@@ -17,7 +17,7 @@ import { RateLimit } from '../common/rate-limit';
 import { body, ZodBody } from '../common/zod';
 import { ENV, type Env } from '../config/env';
 import { Inject } from '@nestjs/common';
-import { AllowWhilePasswordChangePending, Auth, CurrentAuth } from './auth.decorators';
+import { AllowBeforeMfa, AllowWhilePasswordChangePending, Auth, CurrentAuth, mfaPending } from './auth.decorators';
 import { toPublicUser, type AuthContext } from './auth.types';
 import { AuthService, type LoginResult, type RequestInfo } from './auth.service';
 import { clearSessionCookie, setSessionCookie } from './cookies';
@@ -53,9 +53,12 @@ export class AuthController {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Vary', 'Cookie');
     const a = req.auth;
+    // Half signed in (two-factor step pending): the site treats the visitor as signed out until the code is entered.
+    const pending = mfaPending(a);
     return {
-      user: a ? toPublicUser(a.user) : null,
+      user: a && !pending ? toPublicUser(a.user) : null,
       mfaVerified: a ? a.session.mfaVerifiedAt !== null : false,
+      mfaPending: pending,
       csrfToken: this.csrf.ensure(req, res, a?.session.id),
     };
   }
@@ -81,6 +84,7 @@ export class AuthController {
   @Post('mfa/verify')
   @HttpCode(200)
   @Auth()
+  @AllowBeforeMfa()
   @AllowWhilePasswordChangePending()
   @RateLimit({ name: 'mfa', limit: 10, windowSeconds: 300, scope: 'both' })
   @ZodBody(mfaVerifySchema)
@@ -92,6 +96,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(204)
   @Auth()
+  @AllowBeforeMfa()
   @AllowWhilePasswordChangePending()
   async logout(@CurrentAuth() ctx: AuthContext, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.auth.logout(ctx.session.id, ctx.user, info(req));
@@ -130,8 +135,8 @@ export class AuthController {
   @RateLimit({ name: 'forgot', limit: 10, windowSeconds: 3600 })
   @ZodBody(forgotPasswordSchema)
   async forgot(@body(forgotPasswordSchema) dto: z.infer<typeof forgotPasswordSchema>, @Req() req: Request) {
-    await this.auth.requestPasswordReset(dto.email, info(req));
-    return { accepted: true }; // identical whether or not the address exists
+    await this.auth.requestPasswordReset(dto, info(req));
+    return { accepted: true };
   }
 
   @Post('reset-password')
@@ -147,6 +152,6 @@ export class AuthController {
   @RateLimit({ name: 'reset-code', limit: 20, windowSeconds: 3600 })
   @ZodBody(resetPasswordCodeSchema)
   async resetWithCode(@body(resetPasswordCodeSchema) dto: z.infer<typeof resetPasswordCodeSchema>, @Req() req: Request) {
-    await this.auth.resetPasswordWithCode(dto.email, dto.code, dto.password, info(req));
+    await this.auth.resetPasswordWithCode(dto.email, dto.portal, dto.code, dto.password, info(req));
   }
 }

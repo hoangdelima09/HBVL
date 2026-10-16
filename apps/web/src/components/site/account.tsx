@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import QRCode from 'qrcode';
 import { toast } from 'sonner';
 import { changePasswordSchema, LIMITS } from '@hbvl/contracts';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select, Textarea } from '@/components/ui/form';
 import { Alert, Badge, Skeleton } from '@/components/ui/misc';
@@ -15,7 +16,7 @@ import { RestrictionNotice } from './restriction-notice';
 import { useSession } from '@/lib/session';
 import { applyApiErrors } from '@/lib/forms';
 
-const card = 'rounded-2xl bg-white p-6 shadow-card sm:p-8';
+const card = 'rounded-3xl border border-line bg-white p-6 shadow-card sm:p-8 transition-shadow';
 
 export function AccountPage({ locale }: { locale: Locale }) {
   const t = tr(locale);
@@ -42,13 +43,18 @@ export function AccountPage({ locale }: { locale: Locale }) {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-10 sm:px-6">
       <header>
-        <h1 className="font-serif text-4xl font-semibold">{t('Tài khoản của bạn', 'Your account')}</h1>
-        <p className="mt-1 text-ink-2">
-          {t('Xin chào', 'Hello')}, <strong>{user.displayName}</strong> ·{' '}
-          <Badge tone="brand">
-            {user.role === 'ADMIN' ? t('Quản trị viên', 'Administrator') : user.role === 'COLLABORATOR' ? t('Cộng tác viên', 'Collaborator') : t('Thành viên', 'Member')}
-          </Badge>
-        </p>
+        <div className="flex items-center gap-4">
+          <Avatar src={user.avatarUrl} name={user.displayName} size={64} />
+          <div>
+            <h1 className="font-serif text-4xl font-semibold">{t('Tài khoản của bạn', 'Your account')}</h1>
+            <p className="mt-1 text-ink-2">
+              {t('Xin chào', 'Hello')}, <strong>{user.displayName}</strong> ·{' '}
+              <Badge tone="brand">
+                {user.role === 'ADMIN' ? t('Quản trị viên', 'Administrator') : user.role === 'COLLABORATOR' ? t('Cộng tác viên', 'Collaborator') : t('Thành viên', 'Member')}
+              </Badge>
+            </p>
+          </div>
+        </div>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button asChild variant="secondary">
             <Link href={localePath(locale, '/gui-bai')}>{t('Gửi bài', 'Submit a story')}</Link>
@@ -69,6 +75,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
       {user.restriction && <RestrictionNotice locale={locale} restriction={user.restriction} />}
       <NotificationsCard locale={locale} />
       <EmailStatus locale={locale} verified={user.emailVerified} email={user.email} onVerified={refresh} />
+      <AvatarCard locale={locale} onChanged={refresh} />
       <ProfileCard locale={locale} onSaved={refresh} />
       <PasswordCard locale={locale} />
       <MfaCard locale={locale} enabled={user.mfaEnabled} onChanged={refresh} />
@@ -171,6 +178,102 @@ function EmailStatus({ locale, verified, email, onVerified }: { locale: Locale; 
         {sent ? t('Đã gửi — kiểm tra hộp thư', 'Sent — check your inbox') : t('Gửi lại email xác minh', 'Resend verification e-mail')}
       </Button>
     </Alert>
+  );
+}
+
+const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** Upload / replace / remove the profile picture. The server re-encodes and crops it to a square; the file never leaves as-is. */
+function AvatarCard({ locale, onChanged }: { locale: Locale; onChanged: () => Promise<void> }) {
+  const t = tr(locale);
+  const { user } = useSession();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<'upload' | 'remove' | null>(null);
+  const [preview, setPreview] = useState<string>();
+  if (!user) return null;
+  // Same rule as commenting: the picture is public, so it needs a verified e-mail and an account that is not restricted.
+  const blocked = !user.emailVerified
+    ? t('Hãy xác minh email để đặt ảnh đại diện.', 'Verify your e-mail to set a profile picture.')
+    : user.restriction
+      ? t('Tài khoản đang bị hạn chế tương tác nên chưa đổi được ảnh đại diện.', 'Your account is restricted, so the profile picture cannot be changed.')
+      : null;
+  const upload = async (file: File) => {
+    if (!AVATAR_TYPES.includes(file.type)) return void toast.error(t('Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.', 'Only JPEG, PNG or WebP images.'));
+    if (file.size > LIMITS.imageMaxBytes) return void toast.error(t('Ảnh vượt quá 5 MB.', 'The image is larger than 5 MB.'));
+    const local = URL.createObjectURL(file);
+    setPreview(local);
+    setBusy('upload');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      await post('/me/avatar', undefined, { form });
+      await onChanged();
+      toast.success(t('Đã cập nhật ảnh đại diện.', 'Profile picture updated.'));
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : t('Không tải ảnh lên được.', 'Could not upload the picture.'));
+    } finally {
+      setBusy(null);
+      setPreview(undefined);
+      URL.revokeObjectURL(local);
+    }
+  };
+  const remove = async () => {
+    setBusy('remove');
+    try {
+      await del('/me/avatar');
+      await onChanged();
+      toast.success(t('Đã gỡ ảnh đại diện.', 'Profile picture removed.'));
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : t('Không gỡ được ảnh.', 'Could not remove the picture.'));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <section className={card} aria-labelledby="avatar-h" data-testid="avatar-card">
+      <h2 id="avatar-h" className="font-serif text-2xl font-semibold">
+        {t('Ảnh đại diện', 'Profile picture')}
+      </h2>
+      <div className="mt-4 flex flex-wrap items-center gap-5">
+        <Avatar src={preview ?? user.avatarUrl} name={user.displayName} size={96} className={busy === 'upload' ? 'opacity-60' : undefined} />
+        <div className="min-w-0 flex-1 space-y-3">
+          <p className="text-sm text-muted">
+            {t(
+              'JPEG, PNG hoặc WebP, tối đa 5 MB. Ảnh được cắt vuông và hiển thị công khai cạnh tên bạn (bình luận, thanh tài khoản).',
+              'JPEG, PNG or WebP, up to 5 MB. It is cropped to a square and shown publicly next to your name (comments, account bar).',
+            )}
+          </p>
+          {blocked ? (
+            <Alert kind="info">{blocked}</Alert>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={fileInput}
+                type="file"
+                accept={AVATAR_TYPES.join(',')}
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden
+                data-testid="avatar-file"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) void upload(f);
+                }}
+              />
+              <Button type="button" loading={busy === 'upload'} disabled={!!busy} onClick={() => fileInput.current?.click()}>
+                {user.avatarUrl ? t('Đổi ảnh', 'Change picture') : t('Tải ảnh lên', 'Upload picture')}
+              </Button>
+              {user.avatarUrl && (
+                <Button type="button" variant="outline" loading={busy === 'remove'} disabled={!!busy} onClick={() => void remove()}>
+                  {t('Gỡ ảnh', 'Remove')}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -48,6 +48,12 @@ const schema = z.object({
   GEMINI_FALLBACK_MODEL: z.string().default('gemini-3.5-flash-lite'),
   GEMINI_API_BASE: z.url().default('https://generativelanguage.googleapis.com/v1beta'),
   CHAT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(20_000),
+  /**
+   * Cloudflare Turnstile (CAPTCHA on the collaborator/member forgot-password form after repeated wrong e-mails).
+   * Defaults are Cloudflare's public test keys (always pass, no network call outside production); production must set real keys.
+   */
+  TURNSTILE_SITE_KEY: z.string().min(1).default('1x00000000000000000000AA'),
+  TURNSTILE_SECRET_KEY: z.string().min(1).default('1x0000000000000000000000000000000AA'),
   EMAIL_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(6),
   EMAIL_BACKOFF_MS: z.coerce.number().int().min(50).max(3_600_000).default(30_000),
 });
@@ -84,6 +90,9 @@ export function loadEnv(overrides: Record<string, string | undefined> = {}): Env
     if (!env.COOKIE_SECURE) throw new Error('COOKIE_SECURE must be true in production');
     if (env.PUBLIC_ORIGIN.startsWith('http://')) throw new Error('PUBLIC_ORIGIN must be https in production');
     if (/CHANGE_ME/i.test(JSON.stringify(env))) throw new Error('Placeholder secrets detected in production configuration');
+    if (/^[123]x0{20,}/.test(env.TURNSTILE_SITE_KEY) || /^[123]x0{30,}/.test(env.TURNSTILE_SECRET_KEY)) {
+      throw new Error('TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY must be real Cloudflare Turnstile keys in production (not the test keys)');
+    }
   }
   if (Object.keys(overrides).length === 0) cached = env;
   return env;

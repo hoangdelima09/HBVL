@@ -8,6 +8,7 @@ import {
   BookOpen,
   CalendarDays,
   FileText,
+  KeyRound,
   Flag,
   FolderTree,
   GraduationCap,
@@ -25,9 +26,9 @@ import {
   Users,
   X,
   ClipboardList,
-  ArrowRightLeft,
 } from 'lucide-react';
 import { Alert, Skeleton } from '@/components/ui/misc';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/lib/session';
 import { ConsoleNotifications } from './notifications';
@@ -68,10 +69,10 @@ const ADMIN_NAV: { group: string; items: Item[] }[] = [
     group: 'Hệ thống',
     items: [
       { href: '/admin/nguoi-dung', label: 'Người dùng & vai trò', icon: Users },
+      { href: '/admin/yeu-cau-xac-thuc', label: 'Yêu cầu gỡ xác thực 2 lớp', icon: KeyRound },
       { href: '/admin/cai-dat', label: 'Cài đặt & trang chủ', icon: Settings },
       { href: '/admin/chuyen-huong', label: 'Chuyển hướng URL cũ', icon: Repeat },
       { href: '/admin/nhat-ky', label: 'Nhật ký hệ thống', icon: History },
-      { href: '/admin/di-chuyen', label: 'Báo cáo di chuyển WP', icon: ArrowRightLeft },
     ],
   },
 ];
@@ -208,7 +209,10 @@ export function ConsoleShell({ area, children }: { area: Area; children: ReactNo
                   <Link
                     href={i.href}
                     aria-current={active ? 'page' : undefined}
-                    className={cn('flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium', active ? 'bg-brand-600 text-white' : 'text-slate-200 hover:bg-white/10')}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
+                      active ? 'bg-brand-600 text-white shadow-sm font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white',
+                    )}
                   >
                     <i.icon className="h-4 w-4 shrink-0" aria-hidden />
                     {i.label}
@@ -223,21 +227,24 @@ export function ConsoleShell({ area, children }: { area: Area; children: ReactNo
   );
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[17rem_1fr]" data-area={area}>
+    <div className="min-h-dvh bg-[#f8f9fb] lg:grid lg:grid-cols-[17rem_1fr]" data-area={area}>
       <a href="#console-main" className="sr-only z-[100] rounded-md bg-white px-4 py-2 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
         Bỏ qua tới nội dung
       </a>
-      <aside className="hidden bg-slate-900 p-4 lg:block">
-        <Link href={area === 'admin' ? '/admin' : '/cong-tac-vien'} className="mb-6 flex items-center gap-2 px-3 py-2 font-serif text-xl font-semibold text-white">
-          <ShieldCheck className="h-5 w-5 text-accent-500" aria-hidden />
+      <aside className="hidden bg-slate-950 p-4 border-r border-slate-800/80 lg:block">
+        <Link
+          href={area === 'admin' ? '/admin' : '/cong-tac-vien'}
+          className="mb-6 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 font-serif text-xl font-bold text-white tracking-tight"
+        >
+          <ShieldCheck className="h-5 w-5 text-accent-400" aria-hidden />
           {area === 'admin' ? 'Quản trị HBVL' : 'Cộng tác viên'}
         </Link>
         {sidebar}
       </aside>
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Trình đơn">
-          <button type="button" className="absolute inset-0 bg-slate-900/60" aria-label="Đóng trình đơn" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 overflow-y-auto bg-slate-900 p-4">
+          <button type="button" className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" aria-label="Đóng trình đơn" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 overflow-y-auto bg-slate-950 p-4 border-r border-slate-800">
             <button type="button" onClick={() => setOpen(false)} aria-label="Đóng" className="mb-4 ml-auto block rounded-full p-2 text-white hover:bg-white/10">
               <X className="h-5 w-5" aria-hidden />
             </button>
@@ -246,23 +253,29 @@ export function ConsoleShell({ area, children }: { area: Area; children: ReactNo
         </div>
       )}
       <div className="min-w-0">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-white px-4 py-3">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line/80 bg-white/95 backdrop-blur-md px-5 py-3 shadow-subtle">
           <button
             type="button"
-            className="grid h-10 w-10 place-items-center rounded-md border border-line lg:hidden"
+            className="grid h-10 w-10 place-items-center rounded-lg border border-line bg-white shadow-subtle hover:bg-paper lg:hidden"
             aria-label="Mở trình đơn"
             aria-expanded={open}
             onClick={() => setOpen(true)}
           >
             <Menu className="h-5 w-5" aria-hidden />
           </button>
-          <p className="hidden text-sm text-muted lg:block">{area === 'admin' ? 'Khu vực quản trị' : 'Khu vực cộng tác viên'}</p>
+          <div className="hidden items-center gap-2 lg:flex">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+            <p className="text-xs font-bold uppercase tracking-wider text-muted">{area === 'admin' ? 'Khu vực quản trị' : 'Khu vực cộng tác viên'}</p>
+          </div>
           <div className="flex items-center gap-3 text-sm">
             <ConsoleNotifications area={area} />
-            <Link href="/" className="font-semibold text-brand-700 hover:underline">
+            <Link href="/" className="font-semibold text-brand-700 hover:text-brand-900 transition-colors">
               Xem website
             </Link>
-            <span className="hidden max-w-40 truncate text-muted sm:inline">{user.displayName}</span>
+            <span className="hidden items-center gap-1.5 max-w-48 text-xs font-medium text-muted bg-paper-2 border border-line pl-1 pr-2.5 py-1 rounded-full sm:inline-flex">
+              <Avatar src={user.avatarUrl} name={user.displayName} size={20} />
+              <span className="truncate">{user.displayName}</span>
+            </span>
             <Button
               size="sm"
               variant="outline"
@@ -271,12 +284,12 @@ export function ConsoleShell({ area, children }: { area: Area; children: ReactNo
                 router.push(loginHref);
               }}
             >
-              <LogOut className="h-4 w-4" aria-hidden />
+              <LogOut className="h-3.5 w-3.5" aria-hidden />
               Đăng xuất
             </Button>
           </div>
         </header>
-        <main id="console-main" tabIndex={-1} className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+        <main id="console-main" tabIndex={-1} className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

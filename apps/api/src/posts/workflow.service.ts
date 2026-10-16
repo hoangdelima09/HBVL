@@ -7,7 +7,7 @@ import type { AuthContext } from '../auth/auth.types';
 import { CacheService } from '../cache/cache.service';
 import { E } from '../common/errors';
 import { IdempotencyService, type IdempotentResult } from '../common/idempotency.service';
-import { extractMediaIds, sanitizeRichText } from '../content/sanitize';
+import { buildSearchText, extractMediaIds, sanitizeRichText } from '../content/sanitize';
 import { MediaService, mediaUrl } from '../media/media.service';
 import { OutboxService } from '../outbox/outbox.service';
 import { postStatusMail, postSubmittedMail } from '../mail/templates';
@@ -294,7 +294,7 @@ export class PostWorkflowService {
           title: input.title,
           contentHtml: s.html,
           contentText: s.text,
-          searchText: s.searchText,
+          searchText: buildSearchText(input.title, s.text),
           featuredAssetId: input.featuredAssetId ?? null,
           origin: 'SITE',
           categories: { create: [{ categoryId: input.categoryId, isPrimary: true }] },
@@ -321,7 +321,7 @@ export class PostWorkflowService {
         title: input.title,
         contentHtml: s.html,
         contentText: s.text,
-        searchText: s.searchText,
+        searchText: buildSearchText(input.title, s.text),
         featuredAssetId: input.featuredAssetId ?? null,
       });
       await tx.postCategory.deleteMany({ where: { postId: id } });
@@ -414,11 +414,15 @@ export class PostWorkflowService {
     const data: Prisma.PostUncheckedUpdateManyInput = {};
     if (input.title !== undefined) data.title = input.title;
     let html = post.contentHtml;
+    let text = post.contentText;
     if (input.contentHtml !== undefined) {
       const s = this.prepareContent(input.contentHtml);
-      Object.assign(data, { contentHtml: s.html, contentText: s.text, searchText: s.searchText });
+      Object.assign(data, { contentHtml: s.html, contentText: s.text });
       html = s.html;
+      text = s.text;
     }
+    // Search (site search and the assistant) matches the title as well as the body, so both are re-indexed whenever either changes.
+    if (input.title !== undefined || input.contentHtml !== undefined) data.searchText = buildSearchText(input.title ?? post.title, text);
     if (input.featuredAssetId !== undefined) {
       await this.assertFeatured(tx, input.featuredAssetId, a, post);
       data.featuredAssetId = input.featuredAssetId;

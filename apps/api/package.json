@@ -16,6 +16,7 @@
     "bootstrap:admin": "tsx src/cli/bootstrap-admin.ts",
     "seed:dev": "tsx src/cli/seed-dev.ts",
     "import:members": "tsx src/cli/import-members.ts",
+    "reindex:search": "tsx src/cli/reindex-search.ts",
     "totp": "tsx src/cli/totp.ts",
     "migrate:legacy": "tsx src/cli/migrate-legacy.ts",
     "openapi:export": "node dist/cli/export-openapi.js",

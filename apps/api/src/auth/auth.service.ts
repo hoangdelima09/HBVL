@@ -1,12 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, PrismaClient, type Role } from '@hbvl/database';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Prisma, PrismaClient, type Role, type User } from '@hbvl/database';
 import { normalizeEmail, normalizeUsername, safeReturnTo } from '@hbvl/contracts';
 import { E } from '../common/errors';
 import { ENV, type Env } from '../config/env';
 import { AuditService } from '../audit/audit.service';
 import { OutboxService } from '../outbox/outbox.service';
-import { resetPasswordMail, verifyEmailMail } from '../mail/templates';
+import { adminResetPasswordMail, resetPasswordMail, verifyEmailMail } from '../mail/templates';
 import { RedisService } from '../redis/redis.service';
+import { CaptchaService } from './captcha.service';
 import { MfaService } from './mfa.service';
 import { PasswordService } from './password.service';
 import { SessionService, toAuthUser } from './session.service';
@@ -14,6 +15,24 @@ import { TokenService } from './token.service';
 import type { AuthUser } from './auth.types';
 
 const HOUR = 3_600_000;
+
+/** `cong` query value of the reset link, so the page sends the user back to their own sign-in portal. */
+export const PORTAL_SLUG: Record<Role, string> = { ADMIN: 'quan-tri', COLLABORATOR: 'cong-tac-vien', MEMBER: 'thanh-vien' };
+const PORTAL_LABEL: Record<Role, string> = { ADMIN: 'quản trị viên', COLLABORATOR: 'cộng tác viên', MEMBER: 'thành viên' };
+/** `captchaSiteKey`: the next attempt must carry a CAPTCHA token, so the form can show it right away. */
+const wrongPortalEmail = (portal: Role, captchaSiteKey?: string) => {
+  const message = `Email không đúng. Vui lòng nhập email của tài khoản ${PORTAL_LABEL[portal]}.`;
+  return E.validation([{ path: 'email', message }, ...(captchaSiteKey ? [{ captcha: 'turnstile', siteKey: captchaSiteKey }] : [])], message);
+};
+/** Forgot password, collaborator/member portals: wrong e-mails per client per hour before the CAPTCHA is required. */
+const FORGOT_CAPTCHA_AFTER = 2;
+/** Wrong e-mails site-wide per hour before every client must solve the CAPTCHA (distributed guessing across many IPs). */
+const FORGOT_GLOBAL_CAPTCHA_AFTER = 50;
+/** Wrong e-mails from one client per hour that raise an alert (warn log + audit entry). */
+const FORGOT_ALERT_AT = 10;
+/** The administrator portal always answers alike; padding to a minimum duration hides the extra work done for a real account. */
+const ADMIN_FORGOT_MIN_MS = 400;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const MAX_FAILED = 10;
 const LOCK_MS = 15 * 60_000;
 
@@ -43,8 +62,11 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
     private readonly redis: RedisService,
+    private readonly captcha: CaptchaService,
     @Inject(ENV) private readonly env: Env,
   ) {}
+
+  private readonly log = new Logger('Auth');
 
   private link(path: string, token: string): string {
     return `${this.env.PUBLIC_ORIGIN.replace(/\/$/, '')}${path}?token=${encodeURIComponent(token)}`;
@@ -255,17 +277,82 @@ export class AuthService {
   }
 
   // ───────────── password reset / activation ─────────────
-  /** Always resolves without revealing whether the e-mail exists. */
-  async requestPasswordReset(email: string, req: RequestInfo): Promise<void> {
-    const normalized = normalizeEmail(email);
-    const rl = await this.redis.hit(`rl:forgot:email:${normalized}`, 3, 3600);
-    if (!rl.allowed) return; // silently drop: no oracle, no mail bombing
+  /**
+   * The e-mail must belong to an account of the portal's role (admin ↔ admin, collaborator ↔ collaborator, member ↔ member).
+   * - Administrator portal: always the same answer (no list of admin e-mails can be built); only a real admin address gets a link.
+   * - Collaborator/member portals: a wrong address is refused explicitly; after repeated wrong addresses a CAPTCHA is required.
+   */
+  async requestPasswordReset(input: { email: string; portal: Role; captchaToken?: string }, req: RequestInfo): Promise<void> {
+    const normalized = normalizeEmail(input.email);
+    if (input.portal === 'ADMIN') {
+      const started = Date.now();
+      try {
+        const user = await this.prisma.user.findUnique({ where: { emailNormalized: normalized } });
+        if (!user || user.deletedAt || user.role !== 'ADMIN') await this.recordWrongForgot('ADMIN', req, user?.id);
+        else await this.sendPasswordReset(user, normalized, req);
+      } finally {
+        await sleep(ADMIN_FORGOT_MIN_MS - (Date.now() - started));
+      }
+      return;
+    }
+    if (await this.forgotNeedsCaptcha(req.ip)) {
+      if (!(await this.captcha.verify(input.captchaToken, req.ip))) throw E.captchaRequired(this.captcha.siteKey, !!input.captchaToken);
+    }
     const user = await this.prisma.user.findUnique({ where: { emailNormalized: normalized } });
-    if (!user || user.deletedAt || !['ACTIVE', 'PENDING_RESET'].includes(user.status)) return;
+    if (!user || user.deletedAt || user.role !== input.portal) {
+      const captchaNext = await this.recordWrongForgot(input.portal, req, user?.id);
+      throw wrongPortalEmail(input.portal, captchaNext ? this.captcha.siteKey : undefined);
+    }
+    await this.sendPasswordReset(user, normalized, req);
+  }
+
+  private async forgotNeedsCaptcha(ip: string): Promise<boolean> {
+    const [mine, all] = await this.redis.client.mget(`fp:wrong:ip:${ip}`, 'fp:wrong:all');
+    return Number(mine ?? 0) >= FORGOT_CAPTCHA_AFTER || Number(all ?? 0) >= FORGOT_GLOBAL_CAPTCHA_AFTER;
+  }
+
+  /**
+   * Counts a wrong address (per client and site-wide, 1 h windows), audits it and raises an alert when one client keeps guessing.
+   * Returns whether the next attempt from this client needs the CAPTCHA.
+   */
+  private async recordWrongForgot(portal: Role, req: RequestInfo, userId?: string): Promise<boolean> {
+    const mine = await this.redis.hit(`fp:wrong:ip:${req.ip}`, Number.MAX_SAFE_INTEGER, 3600);
+    const all = await this.redis.hit('fp:wrong:all', Number.MAX_SAFE_INTEGER, 3600);
+    await this.audit.log({
+      action: 'auth.password_reset_wrong_email',
+      resourceType: 'user',
+      resourceId: userId,
+      result: 'DENIED',
+      requestId: req.requestId,
+      ip: req.ip,
+      metadata: { portal },
+    });
+    if (mine.count === FORGOT_ALERT_AT) {
+      this.log.warn(`Forgot password: ${mine.count} wrong e-mails from one client within an hour (possible e-mail enumeration), portal ${portal}`);
+      await this.audit.log({
+        action: 'auth.password_reset_enumeration_suspected',
+        resourceType: 'user',
+        result: 'DENIED',
+        requestId: req.requestId,
+        ip: req.ip,
+        metadata: { portal, wrongAttempts: mine.count },
+      });
+    }
+    return mine.count >= FORGOT_CAPTCHA_AFTER || all.count >= FORGOT_GLOBAL_CAPTCHA_AFTER;
+  }
+
+  private async sendPasswordReset(user: User, normalized: string, req: RequestInfo): Promise<void> {
+    const rl = await this.redis.hit(`rl:forgot:email:${normalized}`, 3, 3600);
+    if (!rl.allowed) return; // silently drop: no mail bombing
+    if (!['ACTIVE', 'PENDING_RESET'].includes(user.status)) return;
     const activation = user.status === 'PENDING_RESET';
+    // Administrators get a link only (no 6-digit code): the code path is refused for them, see resetPasswordWithCode.
+    const admin = user.role === 'ADMIN' && !activation;
     await this.prisma.$transaction(async (tx) => {
-      const { raw, code } = await this.tokens.issue(tx, user.id, activation ? 'ACTIVATE_ACCOUNT' : 'RESET_PASSWORD', activation ? 7 * 24 * HOUR : HOUR);
-      const mail = resetPasswordMail(user.displayName, this.link('/dat-lai-mat-khau', raw), activation, code);
+      const { raw, code } = await this.tokens.issue(tx, user.id, activation ? 'ACTIVATE_ACCOUNT' : 'RESET_PASSWORD', activation ? 7 * 24 * HOUR : HOUR, { withCode: !admin });
+      const mail = admin
+        ? adminResetPasswordMail(user.displayName, `${this.link('/dat-lai-mat-khau', raw)}&cong=${PORTAL_SLUG.ADMIN}`)
+        : resetPasswordMail(user.displayName, `${this.link('/dat-lai-mat-khau', raw)}&cong=${PORTAL_SLUG[user.role]}`, activation, code);
       await this.outbox.enqueueEmail(tx, { to: user.email, kind: activation ? 'ACTIVATE_ACCOUNT' : 'RESET_PASSWORD', ...mail }, { aggregateType: 'user', aggregateId: user.id });
       await this.audit.log({ actorId: user.id, action: 'auth.password_reset_requested', resourceType: 'user', resourceId: user.id, requestId: req.requestId, ip: req.ip }, tx);
     });
@@ -280,14 +367,15 @@ export class AuthService {
     if (!userId) throw E.tokenInvalid();
   }
 
-  /** Reset/activation with the 6-digit e-mailed code. Unknown e-mail, wrong code, expired and burned codes all answer identically (no account oracle). */
-  async resetPasswordWithCode(email: string, code: string, newPassword: string, req: RequestInfo): Promise<void> {
+  /** Reset/activation with the 6-digit e-mailed code, through the portal of the account's role. Wrong portal, wrong code, expired and burned codes all answer identically. */
+  async resetPasswordWithCode(email: string, portal: Role, code: string, newPassword: string, req: RequestInfo): Promise<void> {
     const normalized = normalizeEmail(email);
     const rl = await this.redis.hit(`rl:resetcode:email:${normalized}`, 10, 3600);
     if (!rl.allowed) throw E.rateLimited(rl.retryAfter);
     const hash = await this.passwords.hash(newPassword); // also keeps timing similar whether or not the account exists
-    const user = await this.prisma.user.findUnique({ where: { emailNormalized: normalized }, select: { id: true, status: true, deletedAt: true } });
-    const eligible = !!user && !user.deletedAt && ['ACTIVE', 'PENDING_RESET'].includes(user.status);
+    const user = await this.prisma.user.findUnique({ where: { emailNormalized: normalized }, select: { id: true, role: true, status: true, deletedAt: true } });
+    // Administrators reset by e-mailed link only; a code is never accepted for them (same answer as a wrong code: no account oracle).
+    const eligible = !!user && !user.deletedAt && user.role === portal && ['ACTIVE', 'PENDING_RESET'].includes(user.status) && !(user.role === 'ADMIN' && user.status === 'ACTIVE');
     const userId = await this.prisma.$transaction(async (tx) => {
       if (!eligible) return null;
       const used = await this.tokens.consumeCode(user.id, ['RESET_PASSWORD', 'ACTIVATE_ACCOUNT'], code, tx);

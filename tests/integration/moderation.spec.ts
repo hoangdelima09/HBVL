@@ -179,6 +179,32 @@ describe('reporting comments', () => {
     expect((await t.admin.query(`SELECT count(*)::int n FROM comment_reports WHERE "commentId"=$1`, [cid])).rows[0].n).toBe(2);
   });
 
+  it('every collaborator also gets an e-mail (once per comment); administrators, the reporter and the author do not', async () => {
+    const p = await insertPublished(t, { authorId: member2.id, categoryId: cat });
+    const cid = await comment(mc2, p.id, 'Bình luận gây tranh cãi');
+    await mc.post(`/comments/${cid}/report`, { reason: 'ABUSE' });
+    const mails = async () =>
+      (await t.admin.query(`SELECT "dedupeKey", payload FROM outbox_events WHERE type='EMAIL_SEND' AND payload->>'kind'='COMMENT_REPORTED'`)).rows as {
+        dedupeKey: string;
+        payload: Record<string, unknown>;
+      }[];
+    const first = await mails();
+    expect(first).toHaveLength(2);
+    for (const u of [collab, collab2]) expect(first.some((m) => m.dedupeKey.endsWith(u.id))).toBe(true);
+    expect(first.some((m) => m.dedupeKey.endsWith(admin.id) || m.dedupeKey.endsWith(member.id) || m.dedupeKey.endsWith(member2.id))).toBe(false);
+    expect(JSON.stringify(first[0]!.payload)).not.toContain('tranh cãi'); // the stored payload is encrypted at rest
+    // a second report of the same comment joins the open item: nobody is mailed again
+    await (await t.loginAs(await t.makeUser())).post(`/comments/${cid}/report`, { reason: 'SPAM' });
+    expect(await mails()).toHaveLength(2);
+  });
+
+  it("a report about an administrator's comment is never e-mailed to collaborators", async () => {
+    const p = await insertPublished(t, { authorId: member2.id, categoryId: cat });
+    const cid = await comment(ac, p.id, 'Bình luận của quản trị viên');
+    await mc.post(`/comments/${cid}/report`, { reason: 'MISINFO' });
+    expect((await t.admin.query(`SELECT count(*)::int n FROM outbox_events WHERE payload->>'kind'='COMMENT_REPORTED'`)).rows[0].n).toBe(0);
+  });
+
   it('rejects own comments, guests, unverified accounts and unknown / hidden comments', async () => {
     const p = await insertPublished(t, { authorId: member2.id, categoryId: cat });
     const cid = await comment(mc, p.id);

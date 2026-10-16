@@ -11,6 +11,7 @@ export const LIMITS = {
   contactMessageMax: 5_000,
   chatMessageMax: 500,
   reportNoteMax: 500,
+  commentMaxEdits: 20,
   chatHistoryTurns: 6,
   chatHistoryTurnMax: 1_000,
   commentMax: 5_000,

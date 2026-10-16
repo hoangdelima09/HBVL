@@ -10,22 +10,22 @@ import { cn } from '@/lib/utils';
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex flex-wrap items-start justify-between gap-4 pb-2">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-ink">{title}</h1>
-        {description && <p className="mt-1 max-w-2xl text-muted">{description}</p>}
+        <h1 className="font-serif text-3xl font-bold tracking-tight text-ink">{title}</h1>
+        {description && <p className="mt-1.5 max-w-2xl text-sm sm:text-base text-muted leading-relaxed">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2.5">{actions}</div>}
     </div>
   );
 }
 
 export function Panel({ title, children, className, actions }: { title?: string; children: ReactNode; className?: string; actions?: ReactNode }) {
   return (
-    <section className={cn('rounded-xl border border-line bg-white p-5 shadow-card', className)}>
+    <section className={cn('rounded-2xl border border-line bg-white p-6 shadow-card transition-shadow', className)}>
       {(title || actions) && (
-        <div className="mb-4 flex items-center justify-between gap-3">
-          {title && <h2 className="font-serif text-xl font-semibold">{title}</h2>}
+        <div className="mb-5 flex items-center justify-between gap-3 border-b border-line/70 pb-3.5">
+          {title && <h2 className="font-serif text-xl font-bold tracking-tight text-ink">{title}</h2>}
           {actions}
         </div>
       )}
@@ -102,23 +102,23 @@ export interface Column<R> {
 }
 export function DataTable<R extends object>({ rows, columns, caption, rowKey }: { rows: R[]; columns: Column<R>[]; caption: string; rowKey?: (r: R) => string }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-line bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-white shadow-card">
       <table className="w-full min-w-[40rem] text-left text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+        <thead className="border-b border-line bg-slate-50/90 text-xs font-bold uppercase tracking-wider text-slate-600">
           <tr>
             {columns.map((c) => (
-              <th key={c.key} scope="col" className={cn('px-4 py-3 font-semibold', c.className)}>
+              <th key={c.key} scope="col" className={cn('px-4.5 py-3.5', c.className)}>
                 {c.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-line/70">
           {rows.map((r, i) => (
-            <tr key={rowKey?.(r) ?? (r as { id?: string }).id ?? i} className="border-t border-line align-top hover:bg-slate-50/60">
+            <tr key={rowKey?.(r) ?? (r as { id?: string }).id ?? i} className="align-top transition-colors hover:bg-slate-50/70">
               {columns.map((c) => (
-                <td key={c.key} className={cn('px-4 py-3', c.className)}>
+                <td key={c.key} className={cn('px-4.5 py-3.5', c.className)}>
                   {c.cell(r)}
                 </td>
               ))}
@@ -152,14 +152,14 @@ export function Stat({ label, value, href, tone }: { label: string; value: React
   const body = (
     <div
       className={cn(
-        'rounded-xl border border-line bg-white p-5 shadow-card',
-        href && 'transition-shadow hover:shadow-lift',
-        tone === 'warn' && 'border-amber-300 bg-accent-100',
-        tone === 'danger' && 'border-red-200 bg-danger-50',
+        'group rounded-2xl border border-line bg-white p-6 shadow-card transition-all duration-200',
+        href && 'hover:border-brand-200 hover:shadow-lift hover:-translate-y-0.5',
+        tone === 'warn' && 'border-amber-300 bg-amber-50/60',
+        tone === 'danger' && 'border-red-200 bg-danger-50/60',
       )}
     >
-      <p className="text-sm font-medium text-muted">{label}</p>
-      <p className="mt-1 font-serif text-4xl font-semibold text-ink" data-testid={`stat-${label}`}>
+      <p className="text-xs font-bold uppercase tracking-wider text-muted">{label}</p>
+      <p className="mt-2 font-serif text-4xl font-bold tracking-tight text-ink" data-testid={`stat-${label}`}>
         {value}
       </p>
     </div>

@@ -1,5 +1,6 @@
 import type { LocaleName } from '@hbvl/contracts';
 import type { Role, UserStatus } from '@hbvl/database';
+import { avatarUrl } from '../media/media-url';
 
 export interface AuthUser {
   id: string;
@@ -17,6 +18,8 @@ export interface AuthUser {
   restrictedAt: Date | null;
   restrictedUntil: Date | null;
   restrictionReason: string | null;
+  /** Profile picture (MediaAsset id) or null. */
+  avatarAssetId: string | null;
 }
 
 export const isRestricted = (u: Pick<AuthUser, 'restrictedAt' | 'restrictedUntil'>, now = Date.now()): boolean =>
@@ -46,6 +49,7 @@ export function toPublicUser(u: AuthUser) {
     mfaEnabled: u.mfaEnabled,
     locale: u.locale,
     mustChangePassword: u.mustChangePassword,
+    avatarUrl: avatarUrl(u.avatarAssetId),
     restriction: isRestricted(u) ? { until: u.restrictedUntil, reason: u.restrictionReason } : null,
   };
 }

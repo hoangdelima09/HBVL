@@ -29,6 +29,7 @@
     "ops": "pnpm --filter @hbvl/api ops",
     "seed:dev": "pnpm --filter @hbvl/api seed:dev",
     "import:members": "pnpm --filter @hbvl/api import:members",
+    "reindex:search": "pnpm --filter @hbvl/api reindex:search",
     "setup:env": "node scripts/setup-env.mjs",
     "storage:init": "pnpm --filter @hbvl/api storage:init",
     "test:a11y": "pnpm --filter @hbvl/tests test:a11y",

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatDate, isLocale, localePath, stripLocale, tr } from './i18n';
 import { pageHref } from './utils';
 import { ApiError } from './client';
+import { googleMapsLinks } from './maps';
 
 describe('locale routing (VI default without prefix, EN under /en, JA under /ja)', () => {
   it('builds localised paths', () => {
@@ -59,5 +60,32 @@ describe('ApiError', () => {
     ]);
     expect(e.fieldErrors()).toEqual({ email: 'Sai định dạng', password: 'Quá ngắn' });
     expect(new ApiError(500, 'X', 'm').fieldErrors()).toEqual({});
+  });
+});
+
+describe('Google Maps links for the contact address', () => {
+  const addr = '43D/46 Hồ Văn Huê, P. Đức Nhuận, TP. HCM';
+  it('builds the embed and the click-through from the address on the page', () => {
+    const m = googleMapsLinks(`  ${addr}  `, { hl: 'ja' })!;
+    expect(m.embed).toBe(`https://www.google.com/maps?q=${encodeURIComponent(addr)}&z=16&hl=ja&output=embed`);
+    expect(m.open).toBe(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`);
+    expect(decodeURIComponent(m.open)).toContain('43D/46 Hồ Văn Huê');
+  });
+  it('uses an administrator link only when it really is Google Maps', () => {
+    expect(googleMapsLinks(addr, { override: 'https://maps.app.goo.gl/abc123' })!.open).toBe('https://maps.app.goo.gl/abc123');
+    expect(googleMapsLinks(addr, { override: 'https://www.google.com/maps/place/x' })!.open).toBe('https://www.google.com/maps/place/x');
+    for (const bad of [
+      'https://www.openstreetmap.org/?mlat=10.8',
+      'javascript:alert(1)',
+      'https://www.google.com.evil.example/maps',
+      'http://www.google.com/maps',
+      'https://evil.example/?https://www.google.com/maps',
+      '',
+    ]) {
+      expect(googleMapsLinks(addr, { override: bad })!.open).toContain('https://www.google.com/maps/search/?api=1&query=');
+    }
+  });
+  it('no address, no map', () => {
+    expect(googleMapsLinks('   ')).toBeNull();
   });
 });

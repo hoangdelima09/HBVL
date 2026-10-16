@@ -2,7 +2,7 @@ import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type Selec
 import { cn } from '@/lib/utils';
 
 const control =
-  'w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-[0.95rem] text-ink placeholder:text-slate-500 shadow-sm focus-visible:border-brand-600 aria-[invalid=true]:border-danger-600 disabled:bg-paper-2';
+  'w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[0.95rem] text-ink placeholder:text-slate-500 shadow-subtle transition-all duration-150 focus-visible:border-brand-600 focus-visible:ring-2 focus-visible:ring-brand-600/20 focus-visible:outline-none aria-[invalid=true]:border-danger-600 aria-[invalid=true]:focus-visible:ring-danger-600/20 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed';
 
 export interface FieldProps {
   label: string;

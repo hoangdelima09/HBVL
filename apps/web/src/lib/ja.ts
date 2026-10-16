@@ -35,8 +35,6 @@ export const JA: Record<string, string> = {
   'Giờ làm việc': '営業時間',
   'Liên Hệ Với Chúng Tôi': 'お問い合わせ',
   'Bản đồ văn phòng': '事務所の地図',
-  'Mở bản đồ lớn hơn': '大きな地図を開く',
-  'Vị trí gần đúng; vui lòng xác nhận địa chỉ trước khi đến.': 'おおよその位置です。訪問前に住所をご確認ください。',
   'Gửi tin nhắn': 'メッセージを送る',
   'Điền thông tin bên dưới, chúng tôi sẽ liên lạc sớm nhất có thể.': '下のフォームにご記入ください。できるだけ早くご連絡いたします。',
   'Đọc tin nổi bật': '注目の記事を読む',

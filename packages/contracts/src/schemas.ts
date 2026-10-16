@@ -29,8 +29,11 @@ export const registerSchema = z
   })
   .refine((v) => v.password === v.passwordConfirm, { path: ['passwordConfirm'], message: 'Passwords do not match' });
 
+/** Sign-in portal = the role an account must have to use it (login, forgot password). */
+export const portalSchema = z.enum(['ADMIN', 'COLLABORATOR', 'MEMBER']);
+
 export const loginSchema = z.strictObject({
-  portal: z.enum(['ADMIN', 'COLLABORATOR', 'MEMBER']),
+  portal: portalSchema,
   identifier: z.string().trim().min(1).max(254),
   password: z.string().min(1).max(LIMITS.passwordMax),
   rememberMe: z.boolean().optional().default(false),
@@ -44,7 +47,12 @@ export const mfaVerifySchema = z.strictObject({
     .regex(/^(\d{6}|[A-Za-z0-9-]{8,20})$/),
 });
 
-export const forgotPasswordSchema = z.strictObject({ email: emailSchema });
+export const forgotPasswordSchema = z.strictObject({
+  email: emailSchema,
+  portal: portalSchema,
+  /** Cloudflare Turnstile token, required after repeated wrong e-mails (the API answers CAPTCHA_REQUIRED). */
+  captchaToken: z.string().min(1).max(2048).optional(),
+});
 export const resetPasswordSchema = z.strictObject({
   token: z.string().min(20).max(200),
   password: passwordSchema,
@@ -56,7 +64,16 @@ export const emailCodeSchema = z
   .trim()
   .regex(/^\d{6}$/, 'Mã gồm 6 chữ số.');
 export const verifyEmailCodeSchema = z.strictObject({ code: emailCodeSchema });
-export const resetPasswordCodeSchema = z.strictObject({ email: emailSchema, code: emailCodeSchema, password: passwordSchema });
+export const resetPasswordCodeSchema = z.strictObject({ email: emailSchema, portal: portalSchema, code: emailCodeSchema, password: passwordSchema });
+/** Lost authenticator: a collaborator/member confirms the e-mailed code and may leave a note for the administrators. */
+export const mfaRecoveryRequestSchema = z.strictObject({
+  code: emailCodeSchema,
+  note: z.string().trim().max(500).refine(noControl, 'Invalid characters').optional(),
+});
+/** Administrator: one-time link token from the "remove two-factor authentication" e-mail. */
+export const mfaResetLinkSchema = z.strictObject({ token: z.string().min(20).max(200) });
+export const mfaDecisionSchema = z.strictObject({ note: z.string().trim().max(500).refine(noControl, 'Invalid characters').optional() });
+export const mfaRejectSchema = z.strictObject({ note: plain(1, 500) });
 export const changePasswordSchema = z.strictObject({
   currentPassword: z.string().min(1).max(LIMITS.passwordMax),
   newPassword: passwordSchema,
@@ -132,6 +149,8 @@ export const restrictUserSchema = z.strictObject({
   reason: plain(1, 300),
 });
 export const blockUserSchema = z.strictObject({ reason: plain(1, 300) });
+/** Staff take down an inappropriate profile picture; the reason is sent to the owner. */
+export const removeAvatarSchema = z.strictObject({ reason: plain(1, 300) });
 
 // ───── admin ─────
 export const adminCreateUserSchema = z.strictObject({

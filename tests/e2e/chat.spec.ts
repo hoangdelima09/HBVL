@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { watchErrors } from './support/helpers';
 
 // The E2E API runs with an empty GEMINI_API_KEY, so the assistant answers in retrieval-only mode here (the AI path has its own integration test).

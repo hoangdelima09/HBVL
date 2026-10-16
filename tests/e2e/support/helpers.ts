@@ -55,8 +55,16 @@ export async function uiLogin(page: Page, key: keyof E2EUsers, opts: { returnTo?
     .fill(u.password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).first().click();
   if (u.mfaSecret) {
-    await page.getByLabel(/Mã xác thực/).fill(mfaCodeFor(u, { totp: opts.totp }));
-    await page.getByRole('button', { name: 'Xác nhận' }).click();
+    // The account may have had two-factor authentication removed meanwhile (recovery tests): then there is no code form.
+    const codeField = page.getByLabel(/Mã xác thực/);
+    const asked = await Promise.race([
+      codeField.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true),
+      page.waitForURL((url) => !url.pathname.includes('dang-nhap'), { timeout: 15_000 }).then(() => false),
+    ]);
+    if (asked) {
+      await codeField.fill(mfaCodeFor(u, { totp: opts.totp }));
+      await page.getByRole('button', { name: 'Xác nhận' }).click();
+    }
   }
   // Wait until the sign-in really completed (navigated away from the portal) so later navigations do not abort it.
   await page.waitForURL((url) => !url.pathname.includes('dang-nhap'), { timeout: 15_000 });

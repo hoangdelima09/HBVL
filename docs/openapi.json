@@ -310,9 +310,18 @@
                   "email": {
                     "type": "string",
                     "maxLength": 254
+                  },
+                  "portal": {
+                    "type": "string",
+                    "enum": ["ADMIN", "COLLABORATOR", "MEMBER"]
+                  },
+                  "captchaToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
                   }
                 },
-                "required": ["email"],
+                "required": ["email", "portal"],
                 "additionalProperties": false
               }
             }
@@ -379,6 +388,10 @@
                     "type": "string",
                     "maxLength": 254
                   },
+                  "portal": {
+                    "type": "string",
+                    "enum": ["ADMIN", "COLLABORATOR", "MEMBER"]
+                  },
                   "code": {
                     "type": "string",
                     "pattern": "^\\d{6}$"
@@ -389,7 +402,7 @@
                     "maxLength": 128
                   }
                 },
-                "required": ["email", "code", "password"],
+                "required": ["email", "portal", "code", "password"],
                 "additionalProperties": false
               }
             }
@@ -452,6 +465,43 @@
         },
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["me"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      }
+    },
+    "/api/v1/me/avatar": {
+      "post": {
+        "operationId": "MeController_setAvatar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["me"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      },
+      "delete": {
+        "operationId": "MeController_removeAvatar",
+        "parameters": [],
+        "responses": {
+          "204": {
             "description": ""
           }
         },
@@ -648,6 +698,243 @@
         ],
         "tags": ["me"],
         "x-roles": ["ANY_AUTHENTICATED"]
+      }
+    },
+    "/api/v1/auth/mfa/recovery/status": {
+      "get": {
+        "operationId": "MfaRecoveryController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["auth"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      }
+    },
+    "/api/v1/auth/mfa/recovery/send-code": {
+      "post": {
+        "operationId": "MfaRecoveryController_sendCode",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["auth"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      }
+    },
+    "/api/v1/auth/mfa/recovery/request": {
+      "post": {
+        "operationId": "MfaRecoveryController_request",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": ["code"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["auth"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      }
+    },
+    "/api/v1/auth/mfa/reset-link": {
+      "post": {
+        "operationId": "MfaRecoveryController_resetLink",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["auth"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      }
+    },
+    "/api/v1/auth/mfa/reset": {
+      "post": {
+        "operationId": "MfaRecoveryController_reset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 200
+                  }
+                },
+                "required": ["token"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["auth"]
+      }
+    },
+    "/api/v1/admin/mfa-requests": {
+      "get": {
+        "operationId": "AdminMfaRequestsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["admin"],
+        "x-roles": ["ADMIN"]
+      }
+    },
+    "/api/v1/admin/mfa-requests/{id}/approve": {
+      "post": {
+        "operationId": "AdminMfaRequestsController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["admin"],
+        "x-roles": ["ADMIN"]
+      }
+    },
+    "/api/v1/admin/mfa-requests/{id}/reject": {
+      "post": {
+        "operationId": "AdminMfaRequestsController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": ["note"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["admin"],
+        "x-roles": ["ADMIN"]
       }
     },
     "/api/v1/media/images": {
@@ -1804,6 +2091,99 @@
         "x-roles": ["ANY_AUTHENTICATED"]
       }
     },
+    "/api/v1/comments/{id}": {
+      "patch": {
+        "operationId": "EngagementController_edit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  }
+                },
+                "required": ["body"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["engagement"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      },
+      "delete": {
+        "operationId": "EngagementController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["engagement"],
+        "x-roles": ["ANY_AUTHENTICATED"]
+      }
+    },
+    "/api/v1/comments/{id}/revisions": {
+      "get": {
+        "operationId": "EngagementController_revisions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["engagement"]
+      }
+    },
     "/api/v1/staff/comments": {
       "get": {
         "operationId": "EngagementController_list",
@@ -2487,6 +2867,42 @@
         "x-roles": ["ADMIN"]
       }
     },
+    "/api/v1/admin/members/export": {
+      "get": {
+        "operationId": "MembersAdminController_export",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["admin-members"],
+        "x-roles": ["ADMIN"]
+      }
+    },
+    "/api/v1/admin/members/bulk": {
+      "post": {
+        "operationId": "MembersAdminController_bulk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["admin-members"],
+        "x-roles": ["ADMIN"]
+      }
+    },
     "/api/v1/admin/members/import/preview": {
       "post": {
         "operationId": "MembersAdminController_preview",
@@ -2538,6 +2954,31 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["admin-members"],
+        "x-roles": ["ADMIN"]
+      },
+      "delete": {
+        "operationId": "MembersAdminController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
             "description": ""
           }
         },
@@ -2625,24 +3066,6 @@
     "/api/v1/admin/audit": {
       "get": {
         "operationId": "AdminController_audit",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "tags": ["admin"],
-        "x-roles": ["ADMIN"]
-      }
-    },
-    "/api/v1/admin/migration": {
-      "get": {
-        "operationId": "AdminController_migration",
         "parameters": [],
         "responses": {
           "200": {
@@ -3528,6 +3951,53 @@
     "/api/v1/staff/users/{id}/block": {
       "post": {
         "operationId": "StaffModerationController_block",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                },
+                "required": ["reason"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": ["moderation"],
+        "x-roles": ["COLLABORATOR", "ADMIN"]
+      }
+    },
+    "/api/v1/staff/users/{id}/remove-avatar": {
+      "post": {
+        "operationId": "StaffModerationController_removeAvatar",
         "parameters": [
           {
             "name": "id",

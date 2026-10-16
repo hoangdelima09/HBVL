@@ -95,9 +95,6 @@ export class AdminController {
   @Get('audit') audit(@query(auditQuery) q: z.infer<typeof auditQuery>) {
     return this.dash.audit(q);
   }
-  @Get('migration') migration() {
-    return this.dash.migration();
-  }
 
   // users
   @Get('users') listUsers(@query(usersQuery) q: z.infer<typeof usersQuery>) {

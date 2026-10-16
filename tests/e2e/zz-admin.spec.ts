@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { apiClient, mail, uiLogin } from './support/helpers';
 
 const stamp = Date.now().toString(36);

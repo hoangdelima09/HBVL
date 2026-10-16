@@ -23,6 +23,7 @@ export type ErrorCode =
   | 'REGISTRATION_FAILED'
   | 'TOKEN_INVALID'
   | 'CODE_INVALID'
+  | 'CAPTCHA_REQUIRED'
   | 'PAYLOAD_TOO_LARGE'
   | 'UNSUPPORTED_MEDIA'
   | 'INTERNAL';
@@ -51,6 +52,14 @@ export const E = {
   invalidCredentials: () => new AppError(401, 'INVALID_CREDENTIALS', 'Thông tin đăng nhập hoặc cổng truy cập không đúng.'),
   accountLocked: (retryAfterSeconds: number) => new AppError(429, 'ACCOUNT_LOCKED', 'Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau.', { retryAfterSeconds }),
   tokenInvalid: () => new AppError(400, 'TOKEN_INVALID', 'Liên kết không hợp lệ hoặc đã hết hạn.'),
+  /** The client must solve the CAPTCHA (site key in `details`) and send again; `failed`: a token was sent but did not verify. */
+  captchaRequired: (siteKey: string, failed: boolean) =>
+    new AppError(
+      400,
+      'CAPTCHA_REQUIRED',
+      failed ? 'Xác minh không thành công. Vui lòng xác minh lại rồi gửi.' : 'Bạn đã nhập sai nhiều lần. Vui lòng xác minh bạn không phải robot rồi gửi lại.',
+      { captcha: 'turnstile', siteKey },
+    ),
   codeInvalid: () => new AppError(400, 'CODE_INVALID', 'Mã không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc yêu cầu mã mới.'),
   csrf: () => new AppError(403, 'CSRF', 'Yêu cầu không hợp lệ (CSRF).'),
 };

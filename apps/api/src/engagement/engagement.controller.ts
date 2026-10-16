@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { commentSchema, LIMITS } from '@hbvl/contracts';
 import type { CommentStatus } from '@hbvl/database';
 import { z } from 'zod';
-import { Auth, CurrentAuth } from '../auth/auth.decorators';
+import { Auth, CurrentAuth, MaybeAuth } from '../auth/auth.decorators';
 import type { AuthContext } from '../auth/auth.types';
 import { RateLimit } from '../common/rate-limit';
 import { body, query, ZodBody } from '../common/zod';
@@ -15,6 +15,7 @@ const moderationQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(LIMITS.pageSizeMax).default(20),
 });
 const moderateSchema = z.strictObject({ status: z.enum(['APPROVED', 'PENDING', 'SPAM', 'TRASHED']) });
+const commentEditSchema = commentSchema.pick({ body: true });
 
 @ApiTags('engagement')
 @Controller()
@@ -36,8 +37,33 @@ export class EngagementController {
   }
 
   @Get('posts/:id/comments')
-  comments(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.svc.listPublic(id);
+  comments(@Param('id', new ParseUUIDPipe()) id: string, @MaybeAuth() a?: AuthContext) {
+    return this.svc.listPublic(id, a);
+  }
+
+  /** The author edits their comment; the previous text stays publicly readable (GET …/revisions). */
+  @Patch('comments/:id')
+  @HttpCode(200)
+  @Auth({ verified: true })
+  @RateLimit({ name: 'comment-edit', limit: 20, windowSeconds: 60, scope: 'actor' })
+  @ZodBody(commentEditSchema)
+  edit(@Param('id', new ParseUUIDPipe()) id: string, @body(commentEditSchema) dto: z.infer<typeof commentEditSchema>, @CurrentAuth() a: AuthContext) {
+    return this.svc.edit(a, id, dto.body);
+  }
+
+  /** The author deletes their comment (allowed even while restricted); staff delete others' under the moderation rules. */
+  @Delete('comments/:id')
+  @HttpCode(200)
+  @Auth()
+  @RateLimit({ name: 'comment-delete', limit: 30, windowSeconds: 60, scope: 'actor' })
+  remove(@Param('id', new ParseUUIDPipe()) id: string, @CurrentAuth() a: AuthContext) {
+    return this.svc.remove(a, id);
+  }
+
+  @Get('comments/:id/revisions')
+  @RateLimit({ name: 'comment-revisions', limit: 120, windowSeconds: 60 })
+  revisions(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.svc.revisions(id);
   }
 
   @Post('posts/:id/comments')

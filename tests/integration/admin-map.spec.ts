@@ -161,6 +161,107 @@ describe('admin members import (preview → commit)', () => {
     expect((await cc.post('/admin/members/import/preview', { rows })).status).toBe(403);
     expect((await mc.post('/admin/members/import/preview', { rows })).status).toBe(403);
   });
+
+  it('replace mode: the file becomes the whole list (current members deleted in the same commit)', async () => {
+    await addMember('Người Cũ Một', 'ha-noi');
+    await addMember('Người Cũ Hai', 'hue');
+    const prev = await ac.post('/admin/members/import/preview', {
+      rows: [
+        { name: 'Người Cũ Một', province: 'Hà Nội' },
+        { name: 'Người Mới', province: 'Cà Mau' },
+      ],
+      replace: true,
+    });
+    expect(prev.body.replace).toBe(true);
+    expect(prev.body.replacing).toBe(2);
+    expect(prev.body.rows.map((r: { status: string }) => r.status)).toEqual(['OK', 'OK']); // checked against an empty list
+    const c = await ac.post('/admin/members/import/commit', { token: prev.body.token, confirmAmbiguous: [] });
+    expect(c.body).toMatchObject({ created: 2, deleted: 2 });
+    const names = (await t.admin.query(`SELECT "fullName" FROM scholarship_members ORDER BY "fullName"`)).rows.map((r) => r.fullName);
+    expect(names).toEqual(['Người Cũ Một', 'Người Mới']);
+  });
+});
+
+describe('admin members: full editing', () => {
+  const memberRow = async (name: string) =>
+    (
+      await t.admin.query(
+        `SELECT m.id, m."fullName", m."normalizedName", m."sourceIdentity", m.status, m."isPublic", p.slug FROM scholarship_members m JOIN provinces p ON p.id = m."legacyProvinceId" WHERE m."fullName" = $1`,
+        [name],
+      )
+    ).rows[0];
+
+  it('edits name and province (search name + identity recomputed, a later import recognises the person), status and visibility', async () => {
+    const r = await ac.post('/admin/members', { name: 'Nguyen Van Sai', provinceSlug: 'ha-noi' });
+    expect(r.status).toBe(201);
+    const before = await memberRow('Nguyen Van Sai');
+    const up = await ac.patch(`/admin/members/${before.id}`, { fullName: '  Nguyễn  Văn Đúng ', provinceSlug: 'ca-mau', isPublic: false, status: 'ARCHIVED' });
+    expect(up.status).toBe(200);
+    const after = await memberRow('Nguyễn Văn Đúng');
+    expect(after).toMatchObject({ id: before.id, normalizedName: foldVietnamese('Nguyễn Văn Đúng'), slug: 'ca-mau', isPublic: false, status: 'ARCHIVED' });
+    expect(after.sourceIdentity).not.toBe(before.sourceIdentity);
+    const again = await ac.post('/admin/members/import/preview', { rows: [{ name: 'Nguyễn Văn Đúng', province: 'Cà Mau' }] });
+    expect(again.body.rows[0].status).toBe('ALREADY_EXISTS');
+    // filters
+    const list = await ac.get('/admin/members?province=ca-mau&status=ARCHIVED&visibility=hidden');
+    expect(list.body.items.map((m: { id: string }) => m.id)).toEqual([before.id]);
+    expect((await ac.get('/admin/members?province=ca-mau&visibility=public')).body.total).toBe(0);
+    const audit = await t.admin.query(`SELECT metadata FROM audit_logs WHERE action='member.update' AND "resourceId"=$1`, [before.id]);
+    expect(audit.rows[0].metadata.from).toEqual({ name: 'Nguyen Van Sai', province: 'ha-noi' });
+  });
+
+  it('a namesake needs "different person" confirmation; unknown province / member are refused', async () => {
+    await addMember('Trần Thị Hai', 'hue');
+    await addMember('Trần Thị Hai', 'ha-noi');
+    const other = await ac.post('/admin/members', { name: 'Trần Thị Khác', provinceSlug: 'hue' });
+    expect(other.status).toBe(201);
+    const id = (await memberRow('Trần Thị Khác')).id;
+    const clash = await ac.patch(`/admin/members/${id}`, { fullName: 'Trần Thị Hai' }); // same name, same province
+    expect(clash.status).toBe(409);
+    expect(clash.body.error.details.status).toBe('DUPLICATE');
+    expect((await ac.patch(`/admin/members/${id}`, { fullName: 'Trần Thị Hai', distinct: true })).status).toBe(200);
+    expect((await t.admin.query(`SELECT count(*)::int n FROM scholarship_members WHERE "normalizedName"=$1`, [foldVietnamese('Trần Thị Hai')])).rows[0].n).toBe(3);
+    expect((await ac.patch(`/admin/members/${id}`, { provinceSlug: 'atlantis' })).status).toBe(400);
+    expect((await ac.patch(`/admin/members/00000000-0000-7000-8000-000000000000`, { fullName: 'X' })).status).toBe(404);
+  });
+
+  it('deletes one or many, bulk hides/archives/moves (namesake moves are reported, not forced), exports CSV; admins only', async () => {
+    for (const n of ['A Một', 'B Hai', 'C Ba', 'D Bốn']) await ac.post('/admin/members', { name: n, provinceSlug: 'hue' });
+    await addMember('C Ba', 'ca-mau');
+    const ids = Object.fromEntries(
+      (await t.admin.query(`SELECT m.id, m."fullName" FROM scholarship_members m JOIN provinces p ON p.id=m."legacyProvinceId" WHERE p.slug='hue'`)).rows.map((r) => [
+        r.fullName,
+        r.id,
+      ]),
+    );
+
+    expect((await ac.delete(`/admin/members/${ids['A Một']}`)).status).toBe(204);
+    expect((await ac.delete(`/admin/members/${ids['A Một']}`)).status).toBe(404);
+
+    const hide = await ac.post('/admin/members/bulk', { ids: [ids['B Hai'], ids['C Ba']], action: 'hide' });
+    expect(hide.body).toMatchObject({ done: 2, failed: [] });
+    const move = await ac.post('/admin/members/bulk', { ids: [ids['B Hai'], ids['C Ba']], action: 'move', provinceSlug: 'ca-mau' });
+    expect(move.body.done).toBe(1);
+    expect(move.body.failed).toEqual([{ id: ids['C Ba'], message: expect.stringContaining('cùng họ tên') }]);
+    expect((await ac.post('/admin/members/bulk', { ids: [ids['B Hai']], action: 'move' })).status).toBe(400);
+
+    const csv = await ac.get('/admin/members/export?province=ca-mau');
+    expect(csv.status).toBe(200);
+    expect(csv.headers['content-type']).toMatch(/text\/csv/);
+    expect(csv.text.replace(/^﻿/, '').split('\r\n').filter(Boolean)).toEqual(['name,province,trang_thai,hien_thi', 'B Hai,Cà Mau,Hoạt động,Ẩn', 'C Ba,Cà Mau,Hoạt động,Hiện']);
+
+    const gone = await ac.post('/admin/members/bulk', { ids: [ids['B Hai'], ids['D Bốn']], action: 'delete' });
+    expect(gone.body.done).toBe(2);
+    expect((await t.admin.query(`SELECT count(*)::int n FROM scholarship_members`)).rows[0].n).toBe(2);
+    expect((await t.admin.query(`SELECT count(*)::int n FROM audit_logs WHERE action IN ('member.delete','members.bulk')`)).rows[0].n).toBe(3);
+
+    for (const c of [cc, mc]) {
+      expect((await c.patch(`/admin/members/${ids['C Ba']}`, { fullName: 'X' })).status).toBe(403);
+      expect((await c.delete(`/admin/members/${ids['C Ba']}`)).status).toBe(403);
+      expect((await c.post('/admin/members/bulk', { ids: [ids['C Ba']], action: 'delete' })).status).toBe(403);
+      expect((await c.get('/admin/members/export')).status).toBe(403);
+    }
+  });
 });
 
 describe('admin users', () => {

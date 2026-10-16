@@ -21,7 +21,7 @@ function csp(nonce: string): string {
     "img-src 'self' data: blob:",
     "font-src 'self'",
     `connect-src 'self'${dev ? ' ws: wss:' : ''}`,
-    'frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.openstreetmap.org',
+    'frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.openstreetmap.org https://www.google.com https://challenges.cloudflare.com', // google.com: the contact-page map embed · challenges.cloudflare.com: the forgot-password CAPTCHA (Turnstile)
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

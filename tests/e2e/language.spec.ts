@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { watchErrors } from './support/helpers';
 
 // A first-time visitor: no language cookie yet (the suite default is a returning visitor who already chose Vietnamese).

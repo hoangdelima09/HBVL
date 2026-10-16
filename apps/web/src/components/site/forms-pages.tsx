@@ -71,19 +71,19 @@ export function FeedbackForm({ locale }: { locale: Locale }) {
       <p className="mt-2 text-lg text-ink-2">
         {t('Ý kiến của bạn chỉ hiển thị trong khu vực quản lý để cộng tác viên và quản trị viên xem.', 'Your feedback is visible only to collaborators and administrators.')}
       </p>
-      <div className="mt-6 rounded-2xl bg-white p-6 shadow-card">
+      <div className="mt-8 rounded-3xl border border-line bg-white p-6 sm:p-9 shadow-card">
         <Gate locale={locale} returnTo={localePath(locale, '/gui-y-kien')}>
           {sent && (
-            <Alert kind="success" className="mb-4">
+            <Alert kind="success" className="mb-5">
               {t('Ý kiến đã được gửi thành công.', 'Your feedback was sent.')}
             </Alert>
           )}
           {error && (
-            <Alert kind="error" className="mb-4">
+            <Alert kind="error" className="mb-5">
               {error}
             </Alert>
           )}
-          <form onSubmit={onSubmit} noValidate className="space-y-4">
+          <form onSubmit={onSubmit} noValidate className="space-y-4.5">
             <input type="text" tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" {...form.register('website')} />
             <Field label={t('Tiêu đề', 'Subject')} required error={e.subject?.message}>
               {(p) => <Input {...p} maxLength={LIMITS.feedbackSubjectMax} {...form.register('subject')} />}
@@ -91,7 +91,7 @@ export function FeedbackForm({ locale }: { locale: Locale }) {
             <Field label={t('Nội dung ý kiến', 'Feedback')} required error={e.message?.message}>
               {(p) => <Textarea {...p} rows={8} maxLength={LIMITS.feedbackMessageMax} {...form.register('message')} />}
             </Field>
-            <Button type="submit" size="lg" loading={form.formState.isSubmitting}>
+            <Button type="submit" size="lg" className="shadow-lift" loading={form.formState.isSubmitting}>
               {t('Gửi cho ban biên tập', 'Send to editorial team')}
             </Button>
           </form>
@@ -129,12 +129,15 @@ export function ContactForm({ locale }: { locale: Locale }) {
   const e = form.formState.errors;
   if (receipt) {
     return (
-      <div role="status" className="rounded-xl bg-ok-50 p-6 text-ok-600" data-testid="contact-receipt">
-        <h2 className="font-serif text-2xl font-semibold">{t('Đã tiếp nhận tin nhắn!', 'Message received!')}</h2>
-        <p className="mt-2 text-ink-2">
-          {t('Mã liên hệ:', 'Reference:')} <strong data-testid="receipt-code">{receipt}</strong>
-        </p>
-        <p className="mt-2 text-ink-2">
+      <div role="status" className="rounded-3xl border border-ok-600/30 bg-ok-50/60 p-7 sm:p-9 text-ok-800 shadow-card" data-testid="contact-receipt">
+        <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-ink">{t('Đã tiếp nhận tin nhắn!', 'Message received!')}</h2>
+        <div className="mt-3.5 inline-flex items-center gap-2 rounded-xl border border-ok-600/20 bg-white px-3.5 py-1.5 text-sm">
+          <span className="text-ink-2">{t('Mã liên hệ:', 'Reference:')}</span>
+          <strong className="font-mono text-base font-bold text-ok-800 tracking-wider" data-testid="receipt-code">
+            {receipt}
+          </strong>
+        </div>
+        <p className="mt-3.5 text-sm sm:text-base text-ink-2 leading-relaxed">
           {t(
             'Tin nhắn đã được lưu. Thông báo cho ban điều hành đang được xếp hàng gửi đi; chúng tôi sẽ phản hồi trong thời gian sớm nhất.',
             'Your message is saved. The notification to the committee is queued for sending; we will respond as soon as possible.',
@@ -144,31 +147,33 @@ export function ContactForm({ locale }: { locale: Locale }) {
     );
   }
   return (
-    <Gate locale={locale} returnTo={localePath(locale, '/lien-he')}>
-      {error && (
-        <Alert kind="error" className="mb-4">
-          {error}
-        </Alert>
-      )}
-      <form onSubmit={onSubmit} noValidate className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('Họ và tên', 'Full name')} required error={e.name?.message}>
-            {(p) => <Input {...p} autoComplete="name" maxLength={LIMITS.contactNameMax} {...form.register('name')} />}
+    <div className="rounded-3xl border border-line bg-white p-6 sm:p-9 shadow-card">
+      <Gate locale={locale} returnTo={localePath(locale, '/lien-he')}>
+        {error && (
+          <Alert kind="error" className="mb-5">
+            {error}
+          </Alert>
+        )}
+        <form onSubmit={onSubmit} noValidate className="space-y-4.5">
+          <div className="grid gap-4.5 sm:grid-cols-2">
+            <Field label={t('Họ và tên', 'Full name')} required error={e.name?.message}>
+              {(p) => <Input {...p} autoComplete="name" maxLength={LIMITS.contactNameMax} {...form.register('name')} />}
+            </Field>
+            <Field label="Email" required error={e.email?.message}>
+              {(p) => <Input {...p} type="email" autoComplete="email" maxLength={LIMITS.contactEmailMax} {...form.register('email')} />}
+            </Field>
+          </div>
+          <Field label={t('Tiêu đề', 'Subject')} error={e.subject?.message}>
+            {(p) => <Input {...p} maxLength={LIMITS.contactSubjectMax} {...form.register('subject')} />}
           </Field>
-          <Field label="Email" required error={e.email?.message}>
-            {(p) => <Input {...p} type="email" autoComplete="email" maxLength={LIMITS.contactEmailMax} {...form.register('email')} />}
+          <Field label={t('Nội dung', 'Message')} required error={e.message?.message}>
+            {(p) => <Textarea {...p} rows={6} maxLength={LIMITS.contactMessageMax} {...form.register('message')} />}
           </Field>
-        </div>
-        <Field label={t('Tiêu đề', 'Subject')} error={e.subject?.message}>
-          {(p) => <Input {...p} maxLength={LIMITS.contactSubjectMax} {...form.register('subject')} />}
-        </Field>
-        <Field label={t('Nội dung', 'Message')} required error={e.message?.message}>
-          {(p) => <Textarea {...p} rows={6} maxLength={LIMITS.contactMessageMax} {...form.register('message')} />}
-        </Field>
-        <Button type="submit" size="lg" loading={form.formState.isSubmitting}>
-          {t('Gửi tin nhắn', 'Send message')}
-        </Button>
-      </form>
-    </Gate>
+          <Button type="submit" size="lg" className="shadow-lift" loading={form.formState.isSubmitting}>
+            {t('Gửi tin nhắn', 'Send message')}
+          </Button>
+        </form>
+      </Gate>
+    </div>
   );
 }

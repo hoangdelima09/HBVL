@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Field, Input, Select, Textarea } from '@/components/ui/form';
@@ -30,6 +31,7 @@ const RESOLUTION_LABEL: Record<string, string> = {
   REMOVE_COMMENT: 'Đã gỡ bình luận',
   REMOVE_AND_RESTRICT: 'Gỡ bình luận + hạn chế tài khoản',
   REMOVE_AND_BLOCK: 'Gỡ bình luận + khóa tài khoản',
+  AUTHOR_DELETED: 'Người viết đã tự xóa bình luận',
 };
 const ROLE: Record<string, string> = { ADMIN: 'Quản trị viên', COLLABORATOR: 'Cộng tác viên', MEMBER: 'Thành viên' };
 
@@ -54,7 +56,16 @@ interface ReportItem {
   handledAt: string | null;
   resolution: string | null;
   resolutionNote: string | null;
-  comment: { body: string; status: string; authorId: string | null; authorName: string; authorRole: string | null; post: { id: string; title: string; slug: string } } | null;
+  comment: {
+    body: string;
+    status: string;
+    authorId: string | null;
+    authorName: string;
+    authorRole: string | null;
+    post: { id: string; title: string; slug: string };
+    editCount: number;
+    revisions: { body: string; writtenAt: string; replacedAt: string }[];
+  } | null;
   reports: { id: string; reason: string; note: string | null; at: string; reporter: { username: string; displayName: string } | null }[];
 }
 type Pending = { item: ReportItem; action: 'REMOVE_COMMENT' | 'REMOVE_AND_RESTRICT' | 'REMOVE_AND_BLOCK' | 'DISMISS' } | null;
@@ -187,6 +198,21 @@ export function ReportsQueue() {
                     ) : (
                       <p className="mt-3 text-sm text-muted">Bình luận không còn tồn tại.</p>
                     )}
+                    {i.comment && i.comment.editCount > 0 && (
+                      <details className="mt-2 text-sm" open>
+                        <summary className="cursor-pointer font-semibold text-amber-800">Bình luận đã được sửa {i.comment.editCount} lần — nội dung trước khi sửa</summary>
+                        <ol className="mt-2 space-y-2" data-testid="report-revisions">
+                          {i.comment.revisions.map((r, n) => (
+                            <li key={n} className="rounded-md border border-line bg-white p-2">
+                              <p className="whitespace-pre-wrap break-words">{r.body}</p>
+                              <p className="mt-1 text-xs text-muted">
+                                Viết lúc {fmt(r.writtenAt)} · thay bằng bản mới lúc {fmt(r.replacedAt)}
+                              </p>
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    )}
                     <details className="mt-2 text-sm">
                       <summary className="cursor-pointer font-semibold text-brand-700">Người tố cáo ({i.reports.length})</summary>
                       <ul className="mt-2 space-y-1 text-muted">
@@ -200,7 +226,7 @@ export function ReportsQueue() {
                     </details>
                     {closed ? (
                       <p className="mt-3 text-sm text-muted">
-                        Xử lý bởi <strong>{i.handledBy?.displayName ?? '—'}</strong> lúc {fmt(i.handledAt)}
+                        Xử lý bởi <strong>{i.handledBy?.displayName ?? (i.resolution === 'AUTHOR_DELETED' ? 'người viết' : '—')}</strong> lúc {fmt(i.handledAt)}
                         {i.resolutionNote ? ` — ${i.resolutionNote}` : ''}
                       </p>
                     ) : (
@@ -279,6 +305,52 @@ export function ReportsQueue() {
   );
 }
 
+// ───────────────────────── remove avatar dialog (shared) ─────────────────────────
+/** Staff take down an inappropriate profile picture; the reason is sent to the owner as a notification. */
+export function RemoveAvatarDialog({ user, onClose }: { user: { id: string; displayName: string; avatarUrl: string | null } | null; onClose: (changed: boolean) => void }) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string>();
+  const submit = async () => {
+    if (!user) return;
+    if (!reason.trim()) {
+      setErr('Hãy nhập lý do (người dùng sẽ thấy).');
+      return;
+    }
+    setBusy(true);
+    setErr(undefined);
+    try {
+      await post(`/staff/users/${user.id}/remove-avatar`, { reason: reason.trim() });
+      toast.success('Đã gỡ ảnh đại diện.');
+      setReason('');
+      onClose(true);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Không thực hiện được.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <ConfirmDialog
+      open={!!user}
+      onOpenChange={(o) => !o && onClose(false)}
+      title={`Gỡ ảnh đại diện của ${user?.displayName ?? ''}?`}
+      description="Ảnh bị xóa khỏi hệ thống; người này nhận thông báo kèm lý do và có thể tải ảnh khác."
+      confirmLabel="Gỡ ảnh"
+      danger
+      loading={busy}
+      onConfirm={() => void submit()}
+    >
+      <div className="space-y-3">
+        {user && <Avatar src={user.avatarUrl} name={user.displayName} size={96} />}
+        <Field label="Lý do (gửi cho người dùng)" required error={err}>
+          {(p) => <Textarea {...p} rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="avatar-remove-reason" />}
+        </Field>
+      </div>
+    </ConfirmDialog>
+  );
+}
+
 // ───────────────────────── restrict dialog (shared) ─────────────────────────
 export function RestrictDialog({ user, onClose }: { user: { id: string; displayName: string } | null; onClose: (changed: boolean) => void }) {
   const [days, setDays] = useState('7');
@@ -347,6 +419,7 @@ interface MemberRow {
   restricted: boolean;
   restrictedUntil: string | null;
   restrictionReason: string | null;
+  avatarUrl: string | null;
 }
 
 export function MembersModeration() {
@@ -355,6 +428,7 @@ export function MembersModeration() {
   const [state, setState] = useState('');
   const query = useQuery<Paged<MemberRow>>(`/staff/members?page=${page}&pageSize=20${q ? `&q=${encodeURIComponent(q)}` : ''}${state ? `&state=${state}` : ''}`);
   const [restrict, setRestrict] = useState<MemberRow | null>(null);
+  const [avatarOf, setAvatarOf] = useState<MemberRow | null>(null);
   const [block, setBlock] = useState<MemberRow | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -417,10 +491,13 @@ export function MembersModeration() {
                   key: 'u',
                   header: 'Tài khoản',
                   cell: (r) => (
-                    <>
-                      <strong>{r.displayName}</strong>
-                      <p className="text-xs text-muted">{r.username}</p>
-                    </>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar src={r.avatarUrl} name={r.displayName} size={32} />
+                      <div>
+                        <strong>{r.displayName}</strong>
+                        <p className="text-xs text-muted">{r.username}</p>
+                      </div>
+                    </div>
                   ),
                 },
                 {
@@ -457,6 +534,11 @@ export function MembersModeration() {
                             Hạn chế
                           </Button>
                         ))}
+                      {r.avatarUrl && (
+                        <Button size="sm" variant="outline" onClick={() => setAvatarOf(r)} data-testid="remove-avatar">
+                          Gỡ ảnh
+                        </Button>
+                      )}
                       {r.status === 'SUSPENDED' ? (
                         <Button size="sm" variant="outline" onClick={() => void act(() => post(`/staff/users/${r.id}/unblock`), 'Đã mở khóa.')}>
                           Mở khóa
@@ -487,6 +569,13 @@ export function MembersModeration() {
         user={restrict}
         onClose={(changed) => {
           setRestrict(null);
+          if (changed) void query.reload();
+        }}
+      />
+      <RemoveAvatarDialog
+        user={avatarOf}
+        onClose={(changed) => {
+          setAvatarOf(null);
           if (changed) void query.reload();
         }}
       />

@@ -115,10 +115,12 @@ export class MembersAdminService {
     private readonly cache: CacheService,
   ) {}
 
-  async list(q: { q?: string; province?: string; page: number; pageSize: number }) {
+  async list(q: { q?: string; province?: string; status?: 'ACTIVE' | 'ARCHIVED'; visibility?: 'public' | 'hidden'; page: number; pageSize: number }) {
     const where: Prisma.ScholarshipMemberWhereInput = {
       ...(q.q ? { normalizedName: { contains: foldVietnamese(q.q) } } : {}),
-      ...(q.province ? { legacyProvince: { slug: q.province } } : {}),
+      ...(q.province ? { legacyProvince: { slug: q.province, system: 'LEGACY_63' } } : {}),
+      ...(q.status ? { status: q.status } : {}),
+      ...(q.visibility ? { isPublic: q.visibility === 'public' } : {}),
     };
     const [total, rows] = await Promise.all([
       this.prisma.scholarshipMember.count({ where }),
@@ -133,34 +135,45 @@ export class MembersAdminService {
     return { items: rows, page: q.page, pageSize: q.pageSize, total, totalPages: Math.max(1, Math.ceil(total / q.pageSize)) };
   }
 
-  /** Validates every row and reports problems by row number. Nothing is written. Same-name people are never silently merged or dropped. */
-  async preview(rows: { name: string; province: string; distinct?: boolean }[]) {
+  /**
+   * Validates every row and reports problems by row number. Nothing is written. Same-name people are never silently merged or dropped.
+   * `replace`: the file becomes the whole list (current members are deleted on commit), so rows are checked against an empty list.
+   */
+  async preview(rows: { name: string; province: string; distinct?: boolean }[], replace = false) {
     if (rows.length === 0 || rows.length > 5000) throw E.validation([{ path: 'rows', message: 'Tệp cần có từ 1 đến 5.000 dòng.' }]);
     const provinces = await this.prisma.province.findMany({ where: { system: 'LEGACY_63' }, select: { id: true, code: true, slug: true, nameVi: true, nameEn: true } });
-    const existing = await this.prisma.scholarshipMember.findMany({ select: { normalizedName: true, sourceIdentity: true, legacyProvince: { select: { slug: true } } } });
+    const existing = replace
+      ? []
+      : await this.prisma.scholarshipMember.findMany({ select: { normalizedName: true, sourceIdentity: true, legacyProvince: { select: { slug: true } } } });
     const out = classifyMemberRows(
       rows,
       provinces,
       existing.map((e) => ({ normalizedName: e.normalizedName, sourceIdentity: e.sourceIdentity, provinceSlug: e.legacyProvince.slug })),
     );
     const token = randomUUID();
-    await this.redis.client.set(`member-import:${token}`, JSON.stringify(out), 'EX', 3600);
+    await this.redis.client.set(`member-import:${token}`, JSON.stringify({ replace, rows: out }), 'EX', 3600);
     const counts = out.reduce<Record<string, number>>((m, r) => ((m[r.status] = (m[r.status] ?? 0) + 1), m), {});
-    return { token, counts, rows: out };
+    const replacing = replace ? await this.prisma.scholarshipMember.count() : 0;
+    return { token, counts, rows: out, replace, replacing };
   }
 
-  /** Applies a previewed import. Ambiguous rows are included only if the admin explicitly confirms them as different people. */
+  /**
+   * Applies a previewed import. Ambiguous rows are included only if the admin explicitly confirms them as different people.
+   * A preview made in replace mode deletes every current member first (same transaction: all or nothing).
+   */
   async commit(a: AuthContext, token: string, confirmAmbiguous: number[]) {
     const raw = await this.redis.client.get(`member-import:${token}`);
     if (!raw) throw E.notFound('Phiên xem trước đã hết hạn. Hãy tải lại tệp.');
-    const rows = JSON.parse(raw) as PreviewRow[];
+    const { replace, rows } = JSON.parse(raw) as { replace: boolean; rows: PreviewRow[] };
     const confirm = new Set(confirmAmbiguous);
     const apply = rows.filter((r) => r.status === 'OK' || (r.status === 'AMBIGUOUS_SAME_NAME' && confirm.has(r.row)));
     const run = randomUUID();
     const provinces = await this.prisma.province.findMany({ where: { system: 'LEGACY_63' }, select: { id: true, slug: true } });
     const bySlug = new Map(provinces.map((p) => [p.slug, p.id]));
     let created = 0;
+    let deleted = 0;
     await this.prisma.$transaction(async (tx) => {
+      if (replace) deleted = (await tx.scholarshipMember.deleteMany({})).count;
       for (const r of apply) {
         const res = await tx.scholarshipMember.createMany({
           data: [{ fullName: r.name, normalizedName: foldVietnamese(r.name), legacyProvinceId: bySlug.get(r.provinceSlug!)!, sourceIdentity: r.identity!, importRunId: run }],
@@ -175,14 +188,14 @@ export class MembersAdminService {
           action: 'members.import',
           resourceType: 'members',
           resourceId: run,
-          metadata: { rows: rows.length, applied: apply.length, created },
+          metadata: { rows: rows.length, applied: apply.length, created, replace, deleted },
         },
         tx,
       );
     });
     await this.redis.client.del(`member-import:${token}`);
     await this.cache.invalidatePublic();
-    return { importRunId: run, created, skipped: rows.length - apply.length };
+    return { importRunId: run, created, skipped: rows.length - apply.length, deleted };
   }
 
   async create(a: AuthContext, input: { name: string; provinceSlug: string; distinct?: boolean }) {
@@ -196,20 +209,145 @@ export class MembersAdminService {
     return { created: r.created };
   }
 
-  async update(a: AuthContext, id: string, data: { status?: 'ACTIVE' | 'ARCHIVED'; isPublic?: boolean; userId?: string | null }) {
+  /**
+   * Edits one member. A new name or province recomputes the search name and the identity hash (so a later import still recognises them).
+   * Another person with the same name (same or other province) needs `distinct` = the admin confirms they are different people.
+   */
+  async update(
+    a: AuthContext,
+    id: string,
+    data: { fullName?: string; provinceSlug?: string; distinct?: boolean; status?: 'ACTIVE' | 'ARCHIVED'; isPublic?: boolean; userId?: string | null },
+  ) {
+    const cur = await this.prisma.scholarshipMember.findUnique({ where: { id }, select: { fullName: true, legacyProvince: { select: { id: true, code: true, slug: true } } } });
+    if (!cur) throw E.notFound('Không tìm thấy học viên.');
     if (data.userId) {
       const u = await this.prisma.user.findUnique({ where: { id: data.userId }, select: { id: true } });
       if (!u) throw E.validation([{ path: 'userId', message: 'Tài khoản không tồn tại.' }]);
     }
+    const patch: Prisma.ScholarshipMemberUncheckedUpdateInput = {};
+    if (data.status !== undefined) patch.status = data.status;
+    if (data.isPublic !== undefined) patch.isPublic = data.isPublic;
+    if (data.userId !== undefined) patch.userId = data.userId;
+    const fullName = data.fullName === undefined ? cur.fullName : data.fullName.replace(/\s+/g, ' ').trim();
+    if (!fullName || fullName.length > 120) throw E.validation([{ path: 'fullName', message: 'Họ tên trống hoặc quá dài (>120).' }]);
+    const moved = data.provinceSlug !== undefined && data.provinceSlug !== cur.legacyProvince.slug;
+    if (fullName !== cur.fullName || moved) {
+      const p = moved
+        ? await this.prisma.province.findFirst({ where: { system: 'LEGACY_63', slug: data.provinceSlug }, select: { id: true, code: true, slug: true } })
+        : cur.legacyProvince;
+      if (!p) throw E.validation([{ path: 'provinceSlug', message: 'Tỉnh không hợp lệ (chọn một trong 63 đơn vị cũ).' }]);
+      const normalizedName = foldVietnamese(fullName);
+      const namesakes = await this.prisma.scholarshipMember.findMany({
+        where: { normalizedName, id: { not: id } },
+        select: { legacyProvince: { select: { slug: true, nameVi: true } } },
+      });
+      const sameProvince = namesakes.find((n) => n.legacyProvince.slug === p.slug);
+      if (namesakes.length && !data.distinct) {
+        const where = (sameProvince ?? namesakes[0]!).legacyProvince.nameVi;
+        throw E.conflict(
+          sameProvince ? `Đã có người cùng họ tên ở ${where}. Đánh dấu "là người khác" nếu đúng là hai người.` : `Đã có người cùng tên ở "${where}" — cần xác nhận là người khác.`,
+          'CONFLICT',
+          { status: sameProvince ? 'DUPLICATE' : 'AMBIGUOUS_SAME_NAME' },
+        );
+      }
+      Object.assign(patch, {
+        fullName,
+        normalizedName,
+        legacyProvinceId: p.id,
+        sourceIdentity: identityOf(normalizedName, p.code, sameProvince ? `m${id}` : ''),
+      });
+    }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.scholarshipMember.update({ where: { id }, data: patch });
+        await this.audit.log(
+          {
+            actorId: a.user.id,
+            actorRole: a.user.role,
+            action: 'member.update',
+            resourceType: 'member',
+            resourceId: id,
+            metadata: { fields: Object.keys(patch), ...(patch.fullName ? { from: { name: cur.fullName, province: cur.legacyProvince.slug } } : {}) },
+          },
+          tx,
+        );
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2002') throw E.conflict('Học viên này đã có trong danh sách.', 'CONFLICT', { status: 'DUPLICATE' });
+      throw e;
+    }
+    await this.cache.invalidatePublic();
+    return { id };
+  }
+
+  /** Permanently removes one member (the map, province pages and statistics stop counting them). Use "Lưu trữ" to keep a record instead. */
+  async remove(a: AuthContext, id: string) {
     await this.prisma.$transaction(async (tx) => {
-      await tx.scholarshipMember.update({ where: { id }, data });
+      const m = await tx.scholarshipMember.findUnique({ where: { id }, select: { fullName: true, legacyProvince: { select: { slug: true } } } });
+      if (!m) throw E.notFound('Không tìm thấy học viên.');
+      await tx.scholarshipMember.delete({ where: { id } });
       await this.audit.log(
-        { actorId: a.user.id, actorRole: a.user.role, action: 'member.update', resourceType: 'member', resourceId: id, metadata: { fields: Object.keys(data) } },
+        {
+          actorId: a.user.id,
+          actorRole: a.user.role,
+          action: 'member.delete',
+          resourceType: 'member',
+          resourceId: id,
+          metadata: { name: m.fullName, province: m.legacyProvince.slug },
+        },
         tx,
       );
     });
     await this.cache.invalidatePublic();
-    return { id };
+  }
+
+  /**
+   * One action on many members. `move` goes through `update` row by row (identity + namesake rules); rows whose name already exists
+   * in the target province are left where they are and reported.
+   */
+  async bulk(a: AuthContext, ids: string[], action: 'hide' | 'show' | 'archive' | 'restore' | 'delete' | 'move', provinceSlug?: string) {
+    if (action === 'move') {
+      if (!provinceSlug) throw E.validation([{ path: 'provinceSlug', message: 'Chọn tỉnh cần chuyển tới.' }]);
+      let done = 0;
+      const failed: { id: string; message: string }[] = [];
+      for (const id of ids) {
+        try {
+          await this.update(a, id, { provinceSlug });
+          done++;
+        } catch (e) {
+          failed.push({ id, message: e instanceof Error ? e.message : 'Lỗi' });
+        }
+      }
+      return { action, done, failed };
+    }
+    const where = { id: { in: ids } };
+    const data: Record<Exclude<typeof action, 'delete'>, Prisma.ScholarshipMemberUpdateManyMutationInput> = {
+      hide: { isPublic: false },
+      show: { isPublic: true },
+      archive: { status: 'ARCHIVED' },
+      restore: { status: 'ACTIVE' },
+    };
+    const done = await this.prisma.$transaction(async (tx) => {
+      const n = action === 'delete' ? (await tx.scholarshipMember.deleteMany({ where })).count : (await tx.scholarshipMember.updateMany({ where, data: data[action] })).count;
+      await this.audit.log(
+        { actorId: a.user.id, actorRole: a.user.role, action: 'members.bulk', resourceType: 'members', metadata: { action, requested: ids.length, done: n, ids } },
+        tx,
+      );
+      return n;
+    });
+    await this.cache.invalidatePublic();
+    return { action, done, failed: [] };
+  }
+
+  /** CSV (UTF-8 with BOM, opens in Excel) of the filtered list; `name,province` re-imports as is. Cells are guarded against formula injection. */
+  async exportCsv(q: { q?: string; province?: string; status?: 'ACTIVE' | 'ARCHIVED'; visibility?: 'public' | 'hidden' }): Promise<string> {
+    const { items } = await this.list({ ...q, page: 1, pageSize: 100_000 });
+    const cell = (v: string) => {
+      const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+      return /[",;\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    };
+    const lines = items.map((m) => [m.fullName, m.legacyProvince.nameVi, m.status === 'ACTIVE' ? 'Hoạt động' : 'Lưu trữ', m.isPublic ? 'Hiện' : 'Ẩn'].map(cell).join(','));
+    return `\uFEFFname,province,trang_thai,hien_thi\r\n${lines.join('\r\n')}\r\n`;
   }
 
   // ───── directory contacts (province pages) ─────

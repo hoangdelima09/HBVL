@@ -50,50 +50,57 @@ export default async function CategoryPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <div className="border-b border-line bg-gradient-to-br from-brand-50 to-paper">
-        <div className="mx-auto max-w-[82rem] px-4 py-10 sm:px-6">
-          <nav aria-label="Breadcrumb" className="text-sm text-muted">
-            <ol className="flex flex-wrap items-center gap-1.5">
+      <div className="border-b border-line bg-gradient-to-b from-paper to-white/70">
+        <div className="mx-auto max-w-[82rem] px-4 py-8 sm:px-6">
+          <nav aria-label="Breadcrumb" className="text-xs font-medium text-muted">
+            <ol className="flex flex-wrap items-center gap-2">
               <li>
-                <Link href={localePath(locale, '/')} className="hover:underline">
+                <Link href={localePath(locale, '/')} className="hover:text-brand-700 transition-colors">
                   {t('Trang chủ', 'Home')}
                 </Link>
               </li>
               {parent && (
                 <>
-                  <li aria-hidden>/</li>
+                  <li aria-hidden className="text-slate-300">
+                    /
+                  </li>
                   <li>
-                    <Link href={localePath(locale, categoryHref(parent))} className="hover:underline">
+                    <Link href={localePath(locale, categoryHref(parent))} className="hover:text-brand-700 transition-colors">
                       {parent.name}
                     </Link>
                   </li>
                 </>
               )}
-              <li aria-hidden>/</li>
+              <li aria-hidden className="text-slate-300">
+                /
+              </li>
               <li aria-current="page" className="font-semibold text-ink">
                 {current.name}
               </li>
             </ol>
           </nav>
-          <h1 className="mt-3 font-serif text-4xl font-semibold sm:text-5xl">{current.name}</h1>
-          <p className="mt-2 max-w-3xl text-lg text-ink-2">{current.description ?? current.summary}</p>
+          <h1 className="mt-4 font-serif text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-ink">{current.name}</h1>
+          {(current.description ?? current.summary) && <p className="mt-2.5 max-w-3xl text-base sm:text-lg leading-relaxed text-ink-2">{current.description ?? current.summary}</p>}
         </div>
       </div>
-      <div className="mx-auto max-w-[82rem] space-y-12 px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-[82rem] space-y-14 px-4 py-12 sm:px-6">
         {group && (
           <section aria-labelledby="sub-title">
-            <h2 id="sub-title" className="font-serif text-2xl font-semibold">
-              {t('Các mục nhỏ', 'Subsections')}
-            </h2>
-            <ul className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="flex items-center gap-2 mb-5">
+              <span className="h-2 w-2 rounded-full bg-brand-600" aria-hidden />
+              <h2 id="sub-title" className="font-serif text-2xl font-bold text-ink">
+                {t('Các mục nhỏ', 'Subsections')}
+              </h2>
+            </div>
+            <ul className="grid gap-5 md:grid-cols-3">
               {group.children.map((c) => (
                 <li key={c.slug}>
                   <Link
                     href={localePath(locale, categoryHref(c))}
-                    className="block h-full rounded-lg border border-line bg-white p-5 shadow-card transition-shadow hover:shadow-lift"
+                    className="group block h-full rounded-2xl border border-line bg-white p-6 shadow-card transition-all duration-200 hover:border-brand-200 hover:shadow-lift hover:-translate-y-0.5"
                   >
-                    <h3 className="font-serif text-xl font-semibold text-brand-700">{c.name}</h3>
-                    <p className="mt-1 text-sm text-muted">{c.description}</p>
+                    <h3 className="font-serif text-xl font-bold text-brand-700 group-hover:text-brand-800 transition-colors">{c.name}</h3>
+                    <p className="mt-2 text-sm text-muted leading-relaxed">{c.description}</p>
                   </Link>
                 </li>
               ))}
@@ -102,9 +109,12 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         )}
         {map && <MapExplorer locale={locale} initialVersion={map.geometryVersion} />}
         <section aria-labelledby="posts-title">
-          <h2 id="posts-title" className="font-serif text-2xl font-semibold">
-            {t('Nội dung đã đăng', 'Published content')}
-          </h2>
+          <div className="flex items-center gap-2 mb-6">
+            <span className="h-2 w-2 rounded-full bg-accent-500" aria-hidden />
+            <h2 id="posts-title" className="font-serif text-2xl font-bold text-ink">
+              {t('Nội dung đã đăng', 'Published content')}
+            </h2>
+          </div>
           {posts.items.length === 0 ? (
             <div className="mt-6">
               <EmptyState

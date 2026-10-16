@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { noHorizontalScroll } from './support/helpers';
 
 const MAP = '/category/dong-du-ky/ban-do-vuon-len';
@@ -16,7 +16,10 @@ test.describe('interactive map: 34 / 63 modes, search, keyboard, islands', () =>
     await map.getByRole('button', { name: '34 tỉnh/thành hiện hành' }).click();
     await map.locator('path[data-province="tuyen-quang"]').click();
     await expect(map.getByTestId('map-count')).toHaveText('2 thành viên'); // Hà Giang (1) + Tuyên Quang (1)
-    await expect(map.getByTestId('map-constituents')).toContainText('Hà Giang cũ · 1 thành viên');
+    // each former province is one row: name on the left, its own count on the right
+    const haGiang = map.getByTestId('map-constituents').getByRole('listitem').filter({ hasText: 'Hà Giang cũ' });
+    await expect(haGiang).toContainText('1 thành viên');
+    await expect(map.getByTestId('map-constituents').getByRole('listitem')).toHaveCount(2);
     await expect(map.getByTestId('map-members')).toContainText('TRẦN THỊ B');
   });
 

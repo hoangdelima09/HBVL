@@ -49,6 +49,7 @@ Trạng thái tài khoản: `ACTIVE`, `SUSPENDED` (khóa, giữ dữ liệu), `P
 | **Đặt lại mật khẩu về mặc định `123456789`** (bắt buộc đổi ở lần đăng nhập sau) | ✘ | ✘ | ✘ | ✔ mọi tài khoản **trừ ADMIN**, trừ chính mình, trừ tài khoản chưa kích hoạt | [NEW] |
 | Nhận thông báo trong web khi có **ý kiến mới** (mất đi khi người đó đã đọc) | ✘ | ✘ | ✔ | ✔ | [NEW] |
 | Nhận **email** khi có bài gửi duyệt | ✘ | ✘ | ✔ (không phải người gửi) | chỉ thông báo trong web | [NEW] |
+| Nhận **email** khi có bình luận bị tố cáo (một lần mỗi bình luận) | ✘ | ✘ | ✔ (trừ tố cáo về bình luận của admin) | chỉ thông báo trong web | [NEW] |
 | Settings, nội dung trang chủ, import, media admin, audit log, redirect | ✘ | ✘ | ✘ | ✔ | [NEW]/WP wp-admin |
 | Quản lý học viên/danh bạ/tỉnh | ✘ | ✘ | ✘ | ✔ | [NEW] |
 | Quản lý chuyên mục, trang, sự kiện, chương trình | ✘ | ✘ | ✘ | ✔ | [CODE] qua wp-admin |

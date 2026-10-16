@@ -176,14 +176,10 @@ describe('login portals & sessions', () => {
 });
 
 describe('password reset', () => {
-  it('does not reveal whether the e-mail exists and activates migrated (PENDING_RESET) accounts', async () => {
+  it('activates migrated (PENDING_RESET) accounts', async () => {
     const pending = await t.makeUser({ status: 'PENDING_RESET', verified: false });
     const c = await t.newClient();
-    const known = await c.post('/auth/forgot-password', { email: pending.email });
-    const unknown = await c.post('/auth/forgot-password', { email: 'nobody@example.test' });
-    expect(known.status).toBe(202);
-    expect(unknown.status).toBe(202);
-    expect(known.body).toEqual(unknown.body);
+    expect((await c.post('/auth/forgot-password', { email: pending.email, portal: 'MEMBER' })).status).toBe(202);
     const q = await t.admin.query(`SELECT purpose FROM auth_tokens WHERE "userId" = $1`, [pending.id]);
     expect(q.rows[0].purpose).toBe('ACTIVATE_ACCOUNT');
     // forge a known token to complete the flow
@@ -202,6 +198,56 @@ describe('password reset', () => {
     expect(u.rows[0].emailVerifiedAt).not.toBeNull();
     const login = await (await t.newClient()).post('/auth/login', { portal: 'MEMBER', identifier: pending.username, password: 'brand-new-password-1' });
     expect(login.status).toBe(200);
+  });
+
+  it('each portal sends a reset only to an account of its role; collaborator/member portals refuse other e-mails, the admin portal answers alike', async () => {
+    const users = { ADMIN: await t.makeUser({ role: 'ADMIN' }), COLLABORATOR: await t.makeUser({ role: 'COLLABORATOR' }), MEMBER: await t.makeUser({ role: 'MEMBER' }) };
+    const portals = Object.keys(users) as (keyof typeof users)[];
+    const captchaToken = 'XXXX.DUMMY.TOKEN.XXXX'; // Cloudflare test secret in tests: any token passes (the CAPTCHA gate has its own test)
+    for (const portal of portals) {
+      for (const owner of portals) {
+        const started = Date.now();
+        const r = await (await t.newClient()).post('/auth/forgot-password', { email: users[owner].email, portal, captchaToken });
+        if (portal === 'ADMIN') {
+          expect(r.status).toBe(202);
+          expect(r.body).toEqual({ accepted: true });
+          expect(Date.now() - started).toBeGreaterThanOrEqual(380); // padded: an admin address cannot be told apart by timing either
+        } else if (owner === portal) expect(r.status).toBe(202);
+        else {
+          expect(r.status).toBe(400);
+          expect(r.body.error.details[0]).toEqual({ path: 'email', message: expect.stringContaining('Email không đúng') });
+        }
+      }
+    }
+    // the route allows 10 requests per client per hour: 9 above + this one
+    expect((await (await t.newClient()).post('/auth/forgot-password', { email: 'nobody@example.test', portal: 'ADMIN' })).body).toEqual({ accepted: true });
+    for (const owner of portals) {
+      const q = await t.admin.query(`SELECT count(*)::int n FROM auth_tokens WHERE "userId" = $1 AND purpose = 'RESET_PASSWORD'`, [users[owner].id]);
+      expect(q.rows[0].n).toBe(1); // only the request through its own portal
+    }
+    const audited = await t.admin.query(`SELECT count(*)::int n FROM audit_logs WHERE action = 'auth.password_reset_wrong_email' AND result = 'DENIED'`);
+    expect(audited.rows[0].n).toBe(7);
+  });
+
+  it('collaborator/member portals: after 2 wrong e-mails the next request needs a CAPTCHA', async () => {
+    const m = await t.makeUser({ role: 'MEMBER' });
+    const c = await t.newClient();
+    const w1 = await c.post('/auth/forgot-password', { email: 'nobody1@example.test', portal: 'MEMBER' });
+    expect(w1.status).toBe(400);
+    expect(w1.body.error.details).toHaveLength(1);
+    const w2 = await c.post('/auth/forgot-password', { email: 'nobody2@example.test', portal: 'COLLABORATOR' });
+    expect(w2.status).toBe(400);
+    expect(w2.body.error.details[1]).toEqual({ captcha: 'turnstile', siteKey: expect.any(String) }); // the form shows the CAPTCHA right away
+    const noToken = await c.post('/auth/forgot-password', { email: m.email, portal: 'MEMBER' });
+    expect(noToken.status).toBe(400);
+    expect(noToken.body.error.code).toBe('CAPTCHA_REQUIRED');
+    expect(noToken.body.error.details).toEqual({ captcha: 'turnstile', siteKey: expect.any(String) });
+    expect((await t.admin.query(`SELECT count(*)::int n FROM auth_tokens WHERE "userId" = $1`, [m.id])).rows[0].n).toBe(0);
+    // the admin portal never asks (it reveals nothing)
+    expect((await c.post('/auth/forgot-password', { email: 'nobody3@example.test', portal: 'ADMIN' })).status).toBe(202);
+    const solved = await c.post('/auth/forgot-password', { email: m.email, portal: 'MEMBER', captchaToken: 'XXXX.DUMMY.TOKEN.XXXX' });
+    expect(solved.status).toBe(202);
+    expect((await t.admin.query(`SELECT count(*)::int n FROM auth_tokens WHERE "userId" = $1 AND purpose = 'RESET_PASSWORD'`, [m.id])).rows[0].n).toBe(1);
   });
 
   it('reset revokes every existing session', async () => {

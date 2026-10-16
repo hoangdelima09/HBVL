@@ -298,7 +298,7 @@ export function PostEditor({ locale, postId }: { locale: Locale; postId?: string
       )}
 
       <form
-        className="mt-6 space-y-6"
+        className="mt-8 rounded-3xl border border-line bg-white p-6 sm:p-9 shadow-card space-y-6"
         onSubmit={(e) => {
           e.preventDefault();
           void onDraft();

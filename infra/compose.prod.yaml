@@ -27,6 +27,9 @@ x-app-env: &app-env
   CSRF_SECRET: ${CSRF_SECRET:?}
   TOKEN_HASH_PEPPER: ${TOKEN_HASH_PEPPER:?}
   MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?}
+  # Cloudflare Turnstile (forgot-password CAPTCHA). Real keys are mandatory: the API refuses to start with the public test keys.
+  TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?}
+  TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?}
   COOKIE_SECURE: 'true'
   TRUST_PROXY: '2'
 

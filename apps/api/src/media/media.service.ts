@@ -13,7 +13,7 @@ type VariantMeta = Record<string, { key: string; width: number; height: number; 
 const FORMAT_MIME: Record<string, string> = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
 const FORMAT_EXT: Record<string, string> = { jpeg: 'jpg', png: 'png', webp: 'webp' };
 
-export const mediaUrl = (id: string, variant: Variant = 'large') => `/api/v1/media/${id}/${variant}`;
+export { mediaUrl } from './media-url';
 
 /** Options used by trusted importers (WordPress migration); user uploads never pass these. */
 export interface UploadOptions {
@@ -66,13 +66,24 @@ export class MediaService {
     let thumb: { data: Buffer; info: OutputInfo };
     try {
       // Full decode + re-encode (rotate() applies EXIF orientation, then metadata is not carried over).
-      original = await input()
-        .rotate()
-        .toFormat(format as 'jpeg' | 'png' | 'webp', { quality: 88 })
-        .toBuffer({ resolveWithObject: true });
-      large = await input().rotate().resize({ width: 1600, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
-      card = await input().rotate().resize(800, 450, { fit: 'cover' }).webp({ quality: 80 }).toBuffer({ resolveWithObject: true });
-      thumb = await input().rotate().resize(400, 300, { fit: 'cover' }).webp({ quality: 78 }).toBuffer({ resolveWithObject: true });
+      if (purpose === 'AVATAR') {
+        // Profile picture: every variant is a square crop centred on the most interesting region (usually the face).
+        const square = (side: number) => input().rotate().resize(side, side, { fit: 'cover', position: 'attention' });
+        original = await square(1024)
+          .toFormat(format as 'jpeg' | 'png' | 'webp', { quality: 88 })
+          .toBuffer({ resolveWithObject: true });
+        large = await square(512).webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
+        card = await square(256).webp({ quality: 80 }).toBuffer({ resolveWithObject: true });
+        thumb = await square(96).webp({ quality: 78 }).toBuffer({ resolveWithObject: true });
+      } else {
+        original = await input()
+          .rotate()
+          .toFormat(format as 'jpeg' | 'png' | 'webp', { quality: 88 })
+          .toBuffer({ resolveWithObject: true });
+        large = await input().rotate().resize({ width: 1600, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
+        card = await input().rotate().resize(800, 450, { fit: 'cover' }).webp({ quality: 80 }).toBuffer({ resolveWithObject: true });
+        thumb = await input().rotate().resize(400, 300, { fit: 'cover' }).webp({ quality: 78 }).toBuffer({ resolveWithObject: true });
+      }
     } catch {
       throw new AppError(415, 'UNSUPPORTED_MEDIA', 'Không đọc được ảnh (tệp hỏng hoặc không đúng định dạng).');
     }
