@@ -206,7 +206,9 @@ describe('administrator lost their authenticator or password', () => {
     expect(mail.text).not.toMatch(/\b\d{6}\b/);
     expect((await t.admin.query(`SELECT "codeHash" FROM auth_tokens WHERE "userId"=$1 AND purpose='RESET_PASSWORD'`, [admin.id])).rows[0].codeHash).toBeNull();
     for (const code of ['000000', '123456']) {
-      expect((await (await t.newClient()).post('/auth/reset-password-code', { email: admin.email, portal: 'ADMIN', code, password: 'mat-khau-moi-dai-du' })).body.error.code).toBe('CODE_INVALID');
+      expect((await (await t.newClient()).post('/auth/reset-password-code', { email: admin.email, portal: 'ADMIN', code, password: 'mat-khau-moi-dai-du' })).body.error.code).toBe(
+        'CODE_INVALID',
+      );
     }
     const token = decodeURIComponent(/dat-lai-mat-khau\?token=([^&\s]+)/.exec(mail.text)![1]!);
     expect((await (await t.newClient()).post('/auth/reset-password', { token, password: 'mat-khau-moi-dai-du' })).status).toBe(204);
