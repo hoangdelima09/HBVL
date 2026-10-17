@@ -9,6 +9,7 @@ import { type z } from 'zod';
 import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordCodeSchema, resetPasswordSchema, safeReturnTo } from '@hbvl/contracts';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/form';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Alert } from '@/components/ui/misc';
 import { Turnstile } from '@/components/ui/turnstile';
 import { ApiError, post } from '@/lib/client';
@@ -118,7 +119,7 @@ export function LoginPortal({ portal, locale, returnTo }: { portal: Portal; loca
               {(p) => <Input {...p} autoComplete="username" maxLength={254} {...form.register('identifier')} />}
             </Field>
             <Field label={t('Mật khẩu', 'Password')} required error={form.formState.errors.password?.message}>
-              {(p) => <Input {...p} type="password" autoComplete="current-password" {...form.register('password')} />}
+              {(p) => <PasswordInput {...p} locale={locale} autoComplete="current-password" {...form.register('password')} />}
             </Field>
             <label className="flex items-center gap-2.5 text-sm text-ink-2 cursor-pointer select-none">
               <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600" {...form.register('rememberMe')} />
@@ -201,10 +202,10 @@ function RegisterForm({ locale, onDone }: { locale: Locale; onDone: (to: string)
         {(p) => <Input {...p} type="email" autoComplete="email" maxLength={254} {...form.register('email')} />}
       </Field>
       <Field label={t('Mật khẩu (ít nhất 10 ký tự)', 'Password (at least 10 characters)')} required error={err.password?.message}>
-        {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('password')} />}
+        {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('password')} />}
       </Field>
       <Field label={t('Nhập lại mật khẩu', 'Confirm password')} required error={err.passwordConfirm?.message}>
-        {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('passwordConfirm')} />}
+        {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('passwordConfirm')} />}
       </Field>
       <Button type="submit" variant="secondary" size="lg" className="w-full" loading={form.formState.isSubmitting}>
         {t('Đăng ký thành viên', 'Register')}
@@ -361,10 +362,10 @@ function ResetWithCode({ locale, portal, email, onResend }: { locale: Locale; po
             )}
           </Field>
           <Field label={t('Mật khẩu mới (ít nhất 10 ký tự)', 'New password (at least 10 characters)')} required error={form.formState.errors.password?.message}>
-            {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('password')} />}
+            {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('password')} />}
           </Field>
           <Field label={t('Nhập lại mật khẩu', 'Confirm password')} required error={form.formState.errors.passwordConfirm?.message}>
-            {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('passwordConfirm')} />}
+            {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('passwordConfirm')} />}
           </Field>
           <Button type="submit" size="lg" className="w-full" loading={form.formState.isSubmitting}>
             {t('Đặt mật khẩu', 'Set password')}
@@ -427,10 +428,10 @@ export function ResetForm({ locale, token, portal }: { locale: Locale; token: st
             </Alert>
           )}
           <Field label={t('Mật khẩu mới (ít nhất 10 ký tự)', 'New password (at least 10 characters)')} required error={form.formState.errors.password?.message}>
-            {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('password')} />}
+            {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('password')} />}
           </Field>
           <Field label={t('Nhập lại mật khẩu', 'Confirm password')} required error={form.formState.errors.passwordConfirm?.message}>
-            {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('passwordConfirm')} />}
+            {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('passwordConfirm')} />}
           </Field>
           <Button type="submit" size="lg" className="w-full" loading={form.formState.isSubmitting}>
             {t('Lưu mật khẩu', 'Save password')}

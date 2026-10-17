@@ -9,6 +9,7 @@ import { changePasswordSchema, LIMITS } from '@hbvl/contracts';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select, Textarea } from '@/components/ui/form';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Alert, Badge, Skeleton } from '@/components/ui/misc';
 import { ApiError, del, get, patch, post } from '@/lib/client';
 import { formatDate, LOCALE_INFO, LANG_COOKIE, localePath, LOCALES, tr, type Locale } from '@/lib/i18n';
@@ -365,13 +366,13 @@ function PasswordCard({ locale, onChanged }: { locale: Locale; onChanged?: () =>
       </h2>
       <form onSubmit={onSubmit} className="mt-4 space-y-4" noValidate>
         <Field label={t('Mật khẩu hiện tại', 'Current password')} required error={e.currentPassword?.message}>
-          {(p) => <Input {...p} type="password" autoComplete="current-password" {...form.register('currentPassword', { required: true })} />}
+          {(p) => <PasswordInput {...p} locale={locale} autoComplete="current-password" {...form.register('currentPassword', { required: true })} />}
         </Field>
         <Field label={t('Mật khẩu mới (ít nhất 10 ký tự)', 'New password (at least 10 characters)')} required error={e.newPassword?.message}>
-          {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('newPassword', { required: true })} />}
+          {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('newPassword', { required: true })} />}
         </Field>
         <Field label={t('Nhập lại mật khẩu mới', 'Confirm new password')} required error={e.confirm?.message}>
-          {(p) => <Input {...p} type="password" autoComplete="new-password" {...form.register('confirm', { required: true })} />}
+          {(p) => <PasswordInput {...p} locale={locale} autoComplete="new-password" {...form.register('confirm', { required: true })} />}
         </Field>
         <Button type="submit" loading={form.formState.isSubmitting}>
           {t('Đổi mật khẩu', 'Change password')}
